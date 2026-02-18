@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import vtkmodules.vtkCommonDataModel
 import vtkmodules.vtkFiltersCore
 import vtkmodules.vtkRenderingOpenGL2
@@ -17,6 +19,11 @@ from vtkmodules.vtkRenderingCore import (
 
 import image3kit as ik
 
+assert ik.__version__ >= "0.0.2", (
+    f"Expected image3kit version >= 0.0.2, got {ik.__version__}, please update image3kit with, e.g.\n"
+    "python -m pip install git+https://github.com/image3kit/image3kit.git"
+)
+
 
 def plot_img3_contour_to_png(img: ik.VxlImgU16, threshold: float, filename: str):
     colors = vtkNamedColors()
@@ -24,14 +31,14 @@ def plot_img3_contour_to_png(img: ik.VxlImgU16, threshold: float, filename: str)
     # Setup off-screen rendering.
     _graphics_factory = vtkGraphicsFactory(off_screen_only_mode=True, use_mesa_classes=True)
 
-    imgVtk = numpy_to_vtk(img.data().ravel())
+    imgVtk = numpy_to_vtk(img.data.ravel())
 
     # Create VTK Image Data
     vtk_img = vtkmodules.vtkCommonDataModel.vtkImageData()
     vtk_img.SetDimensions(img.shape[2], img.shape[1], img.shape[0])  # Z, Y, X to X, Y, Z
-    imgVtk.SetName('Scalars')
+    imgVtk.SetName("Scalars")
     vtk_img.GetPointData().SetScalars(imgVtk)
-    vtk_img.GetPointData().SetActiveScalars('Scalars')
+    vtk_img.GetPointData().SetActiveScalars("Scalars")
 
     # To use a PolyDataMapper, we need to extract a surface (e.g., isosurface)
     contour = vtkmodules.vtkFiltersCore.vtkMarchingCubes()
@@ -42,12 +49,11 @@ def plot_img3_contour_to_png(img: ik.VxlImgU16, threshold: float, filename: str)
     mapper = vtkPolyDataMapper()
     contour >> mapper
 
-
     actor = vtkActor(mapper=mapper)
-    actor.property.color = colors.GetColor3d('White')
+    actor.property.color = colors.GetColor3d("White")
 
     # A renderer and render window.
-    renderer = vtkRenderer(background=colors.GetColor3d('SlateGray'))
+    renderer = vtkRenderer(background=colors.GetColor3d("SlateGray"))
     render_window = vtkRenderWindow(off_screen_rendering=True)
     render_window.SetSize(1920, 1080)
     render_window.AddRenderer(renderer)
@@ -70,12 +76,12 @@ def plot_img3_contour_to_png(img: ik.VxlImgU16, threshold: float, filename: str)
     writer.Write()
 
 
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(f"Usage:\npython {sys.argv[0]} <FILENAME.raw...>")
-        print(f"You need to edit {sys.argv[0]} first!")
+        print(f"Usage:\npython {sys.argv[0]} <FILENAME.raw...>")  # noqa: T201
+        print(f"You need to edit {sys.argv[0]} first!")  # noqa: T201
         sys.exit(1)
+
     filename = sys.argv[1]
 
     # Read 3d image
@@ -86,4 +92,4 @@ if __name__ == '__main__':
     #  img.circleOut(img.nx//2, img.ny//2, 450, 'z', 20000)
     #  plot_img3(img, threshold=16000, filename='screenshot.png')
 
-    plot_img3(img, threshold=16000, filename='screenshot.png')
+    plot_img3_contour_to_png(img, threshold=16000, filename="screenshot.png")
