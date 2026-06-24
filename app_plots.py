@@ -78,7 +78,7 @@ def render_plots():
                     st.button(
                         "⬅️ Previous Plot",
                         key="prev_plot_btn",
-                        use_container_width=True,
+                        width="stretch",
                         on_click=set_selected_plot,
                         args=(prev_plot,),
                     )
@@ -86,7 +86,7 @@ def render_plots():
                     st.button(
                         "➡️ Next Plot",
                         key="next_plot_btn",
-                        use_container_width=True,
+                        width="stretch",
                         on_click=set_selected_plot,
                         args=(next_plot,),
                     )
@@ -97,7 +97,7 @@ def render_plots():
     with col_plots_view:
         if selected_plot:
             full_path = top_dir / selected_plot
-            st.image(str(full_path), use_container_width=True)
+            st.image(str(full_path), width="stretch")
 
             st.write(f"#### `{selected_plot}`")
             # Calculate metadata details

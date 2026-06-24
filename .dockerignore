@@ -33,3 +33,4 @@ fig/
 nohup.out
 .pytest_cache
 **/run_pytest/
+runs/

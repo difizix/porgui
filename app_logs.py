@@ -63,13 +63,13 @@ def render_logs():
             remove_txt = st.text_input("Remove lines containing (split by space):", value=st.session_state.applied_remove, key=f"temp_remove_input_{st.session_state.filter_version}", help="Split by whitespace.")
             col_filt_1, col_filt_2 = st.columns([1, 1])
             with col_filt_1:
-                if st.button("🚫 Filter Out", use_container_width=True):
+                if st.button("🚫 Filter Out", width="stretch"):
                     st.session_state.applied_keep = keep_txt
                     st.session_state.applied_remove = remove_txt
                     st.session_state.filter_applied = True
                     st.rerun()
             with col_filt_2:
-                if st.button("🧹 Clear Filter", use_container_width=True):
+                if st.button("🧹 Clear Filter", width="stretch"):
                     st.session_state.applied_keep = ""
                     st.session_state.applied_remove = ""
                     st.session_state.filter_applied = False

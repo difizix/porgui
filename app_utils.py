@@ -193,3 +193,80 @@ def render_parseargs(params, key_prefix=""):
                 args_dict[p_name] = val
 
     return args_dict
+
+
+def parse_pybind_docstring(docstring):
+    if not docstring:
+        return []
+    first_line = docstring.strip().split("\n")[0]
+    match = re.match(r"^\w+\((.*)\)(?:\s*->\s*\w+)?", first_line)
+    if not match:
+        return []
+    arg_list_str = match.group(1)
+    args = []
+    parts = []
+    current = []
+    bracket_depth = 0
+    paren_depth = 0
+    for char in arg_list_str:
+        if char == ',' and bracket_depth == 0 and paren_depth == 0:
+            parts.append("".join(current).strip())
+            current = []
+        else:
+            if char in ('[', '{'): bracket_depth += 1
+            elif char in (']', '}'): bracket_depth -= 1
+            elif char == '(': paren_depth += 1
+            elif char == ')': paren_depth -= 1
+            current.append(char)
+    if current:
+        parts.append("".join(current).strip())
+        
+    for part in parts:
+        if not part or part.startswith("self"):
+            continue
+        if '=' in part:
+            declaration, default_str = part.split('=', 1)
+            default_str = default_str.strip()
+        else:
+            declaration = part
+            default_str = None
+            
+        if ':' in declaration:
+            name, type_str = declaration.split(':', 1)
+            name = name.strip()
+            type_str = type_str.strip()
+        else:
+            name = declaration.strip()
+            type_str = ""
+            
+        py_type = str
+        if "bool" in type_str:
+            py_type = bool
+        elif "int" in type_str or "SupportsInt" in type_str or "SupportsIndex" in type_str:
+            py_type = int
+        elif "float" in type_str or "SupportsFloat" in type_str:
+            py_type = float
+        elif "Sequence" in type_str or "list" in type_str or "tuple" in type_str:
+            py_type = list
+            
+        default_val = None
+        if default_str:
+            try:
+                if default_str == "True":
+                    default_val = True
+                elif default_str == "False":
+                    default_val = False
+                elif default_str == "None":
+                    default_val = None
+                else:
+                    default_val = eval(default_str)
+            except Exception:
+                default_val = default_str
+                
+        args.append({
+            "name": name,
+            "type": py_type,
+            "default": default_val,
+            "desc": f"Type: {type_str}"
+        })
+    return args
