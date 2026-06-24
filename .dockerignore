@@ -1,0 +1,35 @@
+# Exclude git repository data
+.git
+.github
+**/.git
+**/.github
+
+# Exclude virtual environments and python cache
+.venv
+venv
+ENV
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Exclude build artifacts
+build/
+dist/
+*.egg-info
+**/*.egg-info
+pnmkit/build/
+
+# Exclude large medical/porous media image files (vital to keep docker context small)
+*.tif
+*.raw
+*.raw.gz
+*.mhd
+*.am
+
+# Exclude local figures and logs
+fig/
+nohup.out
+.pytest_cache
+**/run_pytest/

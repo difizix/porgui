@@ -33,7 +33,19 @@ st.markdown("""
         background: linear-gradient(135deg, #0e1117 0%, #161b22 100%);
         color: #c9d1d9;
     }
-    
+    .stMainBlockContainer {
+        padding: 0 1rem 10rem 1rem;
+    }
+    .stAppHeader {
+        /*display: none;*/
+        z-index: -1 !important;
+    }
+
+    /* Transparent Header */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+    }
+
     /* Premium card design */
     .card {
         background-color: #1f242c;
@@ -113,8 +125,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Headings
-st.markdown('<div class="title-gradient">🔬 image3kit Workflow Studio</div>', unsafe_allow_html=True)
-st.markdown("<p style='color: #8b949e; margin-top:-10px; margin-bottom:25px;'>An interactive workbench that preserves CLI scripts as the core workflow</p>", unsafe_allow_html=True)
+# st.markdown('<div class="title-gradient">🔬 image3kit Workflow Studio</div>', unsafe_allow_html=True)
+# st.markdown("<p style='color: #8b949e; margin-top:-10px; margin-bottom:25px;'>An interactive workbench that preserves CLI scripts as the core workflow</p>", unsafe_allow_html=True)
 
 # Import image3kit inside a safe block
 try:
@@ -183,108 +195,101 @@ script_files = sorted(glob.glob("*.py"))
 script_files = [f for f in script_files if f != "gui.py" and f != "app.py"]
 
 # ----------------------------------------------------
-# SIDEBAR CONTROLS
-# ----------------------------------------------------
-st.sidebar.markdown('<div class="card-title">⚙️ Workflow Setup</div>', unsafe_allow_html=True)
-
-# Select Python script
-selected_script = st.sidebar.selectbox("Select Core CLI Script", script_files if script_files else ["No scripts found"])
-
-# Input CLI arguments (arguments to mock sys.argv)
-args_input = st.sidebar.text_input(
-    "CLI Input Arguments",
-    value="Water_saturated.tif" if os.path.exists("Water_saturated.tif") else ""
-)
-
-# Cache management status card
-st.sidebar.markdown("---")
-st.sidebar.markdown('<div class="card-title">🧠 In-Memory Cache</div>', unsafe_allow_html=True)
-if st.session_state.image_cache:
-    for k in st.session_state.image_cache.keys():
-        name = os.path.basename(k.split("_")[-1])
-        st.sidebar.code(f"• {name} (Loaded)", language="text")
-    if st.sidebar.button("Clear Memory Cache"):
-        st.session_state.image_cache.clear()
-        st.sidebar.success("Cache cleared!")
-        st.rerun()
-else:
-    st.sidebar.info("Cache is empty. Images will be loaded on first script execution.")
-
-# ----------------------------------------------------
 # MAIN STUDIO INTERFACE
 # ----------------------------------------------------
 if not script_files:
     st.warning("No python scripts found in the current directory. Create a CLI script like `dering_segment.py` to get started.")
     st.stop()
 
-# Read the script code
-if selected_script:
-    with open(selected_script, "r") as f:
-        script_code = f.read()
-else:
-    script_code = ""
-
 # Split main window into tabs
 tab_workflow, tab_viewer = st.tabs(["💻 Workflow Studio", "🖼️ Interactive Visualizer"])
 
 # TAB 1: WORKFLOW STUDIO
 with tab_workflow:
-    col_code, col_run_panel = st.columns([3, 2])
-
     run_triggered = False
 
-    with col_code:
-        st.markdown('<div class="card-title">📝 Code Editor</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">📝 Code Editor</div>', unsafe_allow_html=True)
 
-        # Display rich code editor or fallback text area
-        try:
-            from streamlit_code_editor import code_editor
-            custom_buttons = [
-                {
-                    "name": "Save Script",
-                    "feather": "Save",
-                    "hasText": True,
-                    "event": "save",
-                    "style": {"color": "#bc8cff", "borderColor": "#30363d"}
-                },
-                {
-                    "name": "Run Workspace",
-                    "feather": "Play",
-                    "hasText": True,
-                    "event": "run",
-                    "style": {"color": "#58a6ff", "borderColor": "#30363d", "fontWeight": "bold"}
-                }
-            ]
-            response = code_editor(
-                script_code,
-                lang="python",
-                theme="monokai",
-                buttons=custom_buttons,
-                height=[25, 40]
-            )
-            edited_code = response.get("text", script_code)
-            action_save = response.get("type") == "save"
-            run_triggered = response.get("type") == "run"
-        except ImportError:
-            # Fallback layout if streamlit-code-editor is missing
-            edited_code = st.text_area("Script Code", value=script_code, height=500)
-            c_btn1, c_btn2 = st.columns(2)
-            with c_btn1:
-                action_save = st.button("💾 Save Script Changes")
-            with c_btn2:
-                run_triggered = st.button("🚀 Run Workflow")
+    # 4-column row for controls and buttons (moved from sidebar / bottom)
+    col1, col2, col3, col4 = st.columns([3, 3, 2, 2])
 
-        # Handle Save Event
-        if action_save:
-            with open(selected_script, "w") as f:
-                f.write(edited_code)
-            st.success(f"Changes saved successfully to `{selected_script}`! The script remains runnable directly via command line.")
-            st.rerun()
+    with col1:
+        selected_script = st.selectbox(
+            "Select Script",
+            script_files if script_files else ["No scripts found"]
+        )
+
+    with col2:
+        args_input = st.text_input(
+            "CLI Input Arguments",
+            value="Dry.tif" if os.path.exists("Dry.tif") else ""
+        )
+
+    with col3:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        action_save = st.button("💾 Save Script Changes", use_container_width=True)
+
+    with col4:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        run_triggered = st.button("🚀 Run Workspace", use_container_width=True)
+
+    # In-Memory Cache Status (moved from sidebar)
+    with st.expander("🧠 In-Memory Cache Status", expanded=False):
+        if st.session_state.image_cache:
+            for k in st.session_state.image_cache.keys():
+                name = os.path.basename(k.split("_")[-1])
+                st.code(f"• {name} (Loaded)", language="text")
+            if st.button("Clear Memory Cache"):
+                st.session_state.image_cache.clear()
+                st.success("Cache cleared!")
+                st.rerun()
+        else:
+            st.info("Cache is empty. Images will be loaded on first script execution.")
+
+    # Read the script code
+    if selected_script and selected_script != "No scripts found":
+        with open(selected_script, "r") as f:
+            script_code = f.read()
+    else:
+        script_code = ""
+
+    # Display rich code editor or fallback text area
+    try:
+        from code_editor import code_editor
+        response = code_editor(
+            script_code,
+            lang="python",
+            theme="monokai",
+            height=[25, 40],
+            response_mode=["debounce", "blur"],
+            key=f"editor_{selected_script}"
+        )
+        edited_code = response.get("text") or script_code  # fallback to disk content if editor hasn't sent text yet
+    except ImportError:
+        # Fallback layout if streamlit-code-editor is missing
+        edited_code = st.text_area("Script Code", value=script_code, height=500)
+
+    # Debug logs in stdout
+    print(f"[DEBUG] selected_script={selected_script}, run_triggered={run_triggered}, action_save={action_save}", flush=True)
+    if 'response' in locals() and isinstance(response, dict):
+        print(f"[DEBUG] response dict keys: {list(response.keys())}, type={response.get('type')}, text_len={len(response.get('text', ''))}", flush=True)
+
+    # Handle Save Event
+    if action_save:
+        with open(selected_script, "w") as f:
+            f.write(edited_code)
+        st.success(f"Changes saved successfully to `{selected_script}`! The script remains runnable directly via command line.")
+        st.rerun()
 
     # Run execution block outside/before rendering outputs
     if run_triggered:
+        print("[DEBUG] Run Workspace triggered! Executing script...", flush=True)
         stdout_buf = io.StringIO()
         stderr_buf = io.StringIO()
+
+        # Log file: same directory as script, same name with .log extension
+        log_path = os.path.splitext(os.path.abspath(selected_script))[0] + ".log"
+        print(f"[DEBUG] Logging run to: {log_path}", flush=True)
 
         # Setup CLI environment (mock sys.argv and absolute path workspace)
         original_argv = sys.argv
@@ -303,8 +308,20 @@ with tab_workflow:
                 with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
                     exec(edited_code, exec_namespace)
 
-                st.session_state.console_output = stdout_buf.getvalue()
+                captured_out = stdout_buf.getvalue()
+                captured_err = stderr_buf.getvalue()
+                captured_combined = captured_out
+                if captured_err:
+                    captured_combined += "\n--- stderr ---\n" + captured_err
+                st.session_state.console_output = captured_combined
                 st.toast("Workflow executed successfully!", icon="✅")
+
+                # Write to log file (stdout + stderr)
+                with open(log_path, "w") as lf:
+                    lf.write(f"# Script: {selected_script}\n")
+                    lf.write(f"# Args: {args_input}\n")
+                    lf.write("# Status: OK\n\n")
+                    lf.write(captured_combined)
 
                 # Parse image statistics from stdout
                 lines = st.session_state.console_output.split("\n")
@@ -316,38 +333,69 @@ with tab_workflow:
 
                 # Search namespace for any output VxlImg object to pass to the visualizer
                 found_img = None
-                for val in exec_namespace.values():
-                    if isinstance(val, (st.session_state.original_VxlImgU16,
-                                        st.session_state.original_VxlImgU8,
-                                        st.session_state.original_VxlImgF32)):
-                        found_img = val
+                if "img" in exec_namespace and isinstance(exec_namespace["img"], (
+                    st.session_state.original_VxlImgU16,
+                    st.session_state.original_VxlImgU8,
+                    st.session_state.original_VxlImgF32
+                )):
+                    found_img = exec_namespace["img"]
+                else:
+                    for val in exec_namespace.values():
+                        if isinstance(val, (st.session_state.original_VxlImgU16,
+                                            st.session_state.original_VxlImgU8,
+                                            st.session_state.original_VxlImgF32)):
+                            found_img = val
                 if found_img is not None:
                     st.session_state.processed_image = found_img
 
             except Exception as e:
-                st.session_state.console_output = stdout_buf.getvalue() + "\n" + stderr_buf.getvalue() + "\n" + traceback.format_exc()
+                err_text = stdout_buf.getvalue() + "\n" + stderr_buf.getvalue() + "\n" + traceback.format_exc()
+                st.session_state.console_output = err_text
                 st.error("Workflow failed with execution error.")
+
+                # Write error to log file
+                with open(log_path, "w") as lf:
+                    lf.write(f"# Script: {selected_script}\n")
+                    lf.write(f"# Args: {args_input}\n")
+                    lf.write("# Status: ERROR\n\n")
+                    lf.write(err_text)
+
+                # Search namespace even on error to preserve loaded images in viewer
+                found_img = None
+                if "img" in exec_namespace and isinstance(exec_namespace["img"], (
+                    st.session_state.original_VxlImgU16,
+                    st.session_state.original_VxlImgU8,
+                    st.session_state.original_VxlImgF32
+                )):
+                    found_img = exec_namespace["img"]
+                else:
+                    for val in exec_namespace.values():
+                        if isinstance(val, (st.session_state.original_VxlImgU16,
+                                            st.session_state.original_VxlImgU8,
+                                            st.session_state.original_VxlImgF32)):
+                            found_img = val
+                if found_img is not None:
+                    st.session_state.processed_image = found_img
             finally:
                 sys.argv = original_argv
                 st.rerun()
 
-    # Render Console logs below the editor in col_code
-    with col_code:
-        st.markdown('<div class="card-title" style="margin-top: 20px;">🖥️ Standard Output (stdout)</div>', unsafe_allow_html=True)
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.text_area("Console Logs", value=st.session_state.console_output, height=250, key="log_area", disabled=True, label_visibility="collapsed")
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_run_panel:
-        st.markdown('<div class="card-title">📊 Execution Results & Stats</div>', unsafe_allow_html=True)
+    # Render Console logs below the editor
+    st.markdown('<div class="card-title" style="margin-top: 20px;">🖥️ Standard Output (stdout)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
 
-        # Render Collapsible parsed printInfo statistics
-        with st.expander("📈 Collapsible printInfo Stats", expanded=True):
-            if st.session_state.parsed_stats:
-                for stat in st.session_state.parsed_stats:
-                    st.markdown(f"• `{stat}`")
-            else:
-                st.info("No printInfo() output parsed yet. Run a workflow that outputs statistics.")
+    # Read log file if it exists (most up-to-date source after st.rerun)
+    log_path = os.path.splitext(os.path.abspath(selected_script))[0] + ".log"
+    if os.path.exists(log_path):
+        with open(log_path, "r") as lf:
+            log_display = lf.read()
+    else:
+        log_display = st.session_state.console_output
+
+    st.text_area("Console Logs", value=log_display, height=250, disabled=True, label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 # TAB 2: INTERACTIVE VISUALIZER
 with tab_viewer:
@@ -415,7 +463,7 @@ with tab_viewer:
                 st.image(
                     pil_image,
                     caption=f"Axis: {axis.split()[0]} | Slice: {slice_idx} / {max_slice} | Window: [{int(min_contrast)}, {int(max_contrast)}]",
-                    use_container_width=True
+                    width="content"
                 )
         except Exception as slice_err:
             st.error(f"Error rendering image slice from memory: {slice_err}")
@@ -432,7 +480,7 @@ with tab_viewer:
             # Let user select which saved plot to display
             selected_fig = st.selectbox("Select saved chart / slice file to view", fig_files)
             if selected_fig:
-                st.image(selected_fig, caption=os.path.basename(selected_fig), use_container_width=True)
+                st.image(selected_fig, caption=os.path.basename(selected_fig), width="content")
         else:
             st.info("No generated files found in `fig/` directory.")
     else:

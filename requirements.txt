@@ -1,2 +1,4 @@
-git+https://github.com/DigiPorFlow/image3kit.git
+git+https://github.com/image3kit/image3kit.git
 vtk
+streamlit
+streamlit_code_editor
