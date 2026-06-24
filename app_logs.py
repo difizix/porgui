@@ -57,31 +57,6 @@ def render_logs():
                 key="log_select_box",
             )
 
-            from difiz.gitops import plot_loss
-
-            st.write("---")
-            with st.expander("📈 Plot Loss Options", expanded=False):
-                parser = plot_loss.get_parser()
-                fixedargs = {"output": "", "markdown": ""}
-                ui_params = parser2uiparams(parser, fixedargs, selected_log_file, top_dir)
-
-                plot_args_dict = render_parseargs(ui_params, key_prefix="plot_loss")
-
-                if st.button("📈 Plot Loss", use_container_width=True):
-                    argv = dict2args(plot_args_dict, "logfiles", fixedargs)
-
-                    try:
-                        with contextlib.chdir(top_dir):
-                            fig = plot_loss.main(argv)
-                            if fig is not None:
-                                st.session_state.loss_plot_fig = fig
-                                st.success("Plot generated successfully!")
-                                st.rerun()
-                            else:
-                                st.error("No figure returned. Ensure log files contain valid data.")
-                    except Exception as ex:
-                        st.error(f"Error plotting loss: {ex}")
-
             st.write("---")
             st.write("### 🔍 Filter Log Display")
             keep_txt = st.text_input("Keep lines containing (split by space):", value=st.session_state.applied_keep, key=f"temp_keep_input_{st.session_state.filter_version}", help="Split by whitespace. If empty, keeps all lines.")
@@ -105,13 +80,6 @@ def render_logs():
             st.info("No log files found in the workspace.")
 
     with col_logs_view:
-        if st.session_state.loss_plot_fig is not None:
-            st.write("### 📈 Loss Plot")
-            st.pyplot(st.session_state.loss_plot_fig)
-            if st.button("❌ Clear Plot", use_container_width=True):
-                st.session_state.loss_plot_fig = None
-                st.rerun()
-            st.write("---")
 
         if selected_log_file:
             full_path = top_dir / selected_log_file
