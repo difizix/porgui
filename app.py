@@ -107,8 +107,8 @@ st.markdown("""
     }
 
     /* Style and limit height of interactive image slices & plots */
-    div[data-testid="stImage"] img {
-        max-height: 55vh !important;
+    div.stImage img {
+        max-height: 75vh !important;
         object-fit: contain !important;
         width: auto !important;
         height: auto !important;

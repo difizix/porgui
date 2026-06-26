@@ -145,8 +145,8 @@ def render_visualizer_tab():
         if img is not None:
             data = img.data
             shape = data.shape
-            axis = st.selectbox("Slice View Axis", ["Z (Slice index)", "Y (Coronal index)", "X (Sagittal index)"], key="view_axis_sel")
-            axis_idx = 0 if "Z" in axis else (1 if "Y" in axis else 2)
+            axis = st.selectbox("Slice Normal Axis", ["Z (Axial)", "Y (Coronal)", "X (Sagittal)"], key="view_axis_sel")
+            axis_idx = 2 if "Z" in axis else (1 if "Y" in axis else 0)
             max_slice = shape[axis_idx] - 1
             if max_slice <= 0:
                 st.caption("Slice Index: 0 (Dimension size is 1)")
@@ -160,18 +160,9 @@ def render_visualizer_tab():
                 st.caption(f"Contrast Range Window: {data_min} (Constant image value)")
                 min_contrast, max_contrast = data_min, data_max
             else:
-                default_start = max(data_min, 3000.0)
-                default_end = min(data_max, 13500.0)
-                if default_start >= default_end:
-                    default_start, default_end = data_min, data_max
-                elif default_start < data_min:
-                    default_start = data_min
-                elif default_end > data_max:
-                    default_end = data_max
+                default_start = data_min
+                default_end = data_max
                 
-                if default_start >= default_end:
-                    default_start, default_end = data_min, data_max
-
                 val_range = st.slider(
                     "Contrast Range Window",
                     data_min, data_max,
@@ -351,17 +342,9 @@ def render_visualizer_tab():
                 pil_image = Image.fromarray(norm_slice)
                 st.image(
                     pil_image,
-                    caption=f"Axis: {axis.split()[0]} | Slice: {slice_idx} / {max_slice} | Window: [{int(min_contrast)}, {int(max_contrast)}]",
+                    caption=f"`{axis.split()[0]}` @ `{slice_idx}` / `{max_slice}` │ color: `{int(min_contrast)}-{int(max_contrast)}` `{data.dtype}` │ span: `{shape}` × `{img.voxelSize}` + `{img.origin}`",
                     width="stretch"
                 )
-                st.markdown(f"""
-                    | Property | Value |
-                    | :--- | :--- |
-                    | **Data Type** | `{data.dtype}` |
-                    | **Voxel Shape** | `{shape}` (Z, Y, X) |
-                    | **Voxel Size** | `{img.voxelSize}` |
-                    | **Origin** | `{img.origin}` |
-                    """)
             except Exception as slice_err:
                 st.error(f"Error rendering image slice from memory: {slice_err}")
 
