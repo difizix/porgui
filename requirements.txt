@@ -1,4 +1,8 @@
 git+https://github.com/image3kit/image3kit.git
 vtk
 streamlit
-streamlit_code_editor
+streamlit_code_editor 
+Pillow
+pytest
+scipy
+sqlalchemy

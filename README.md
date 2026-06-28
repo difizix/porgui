@@ -52,6 +52,22 @@ I have copied the `app_plots.py` from [image3kit/agui](https://github.com/image3
 
 ---
 
+## GUI local installation:
+
+```bash
+pip install -r requirements.txt
+## PNMkit 
+sudo apt-get install libboost-all-dev
+sudo apt-get install libopenmpi-dev openmpi-bin
+pip install git+https://github.com/ai4netzero/pnmkit.git
+
+```
+
+Run GUI:
+```bash
+streamlit run app.py
+```
+
 ## Command-line usage
 
 * Setup venv:

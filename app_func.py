@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import numpy as np
 import traceback
-from PIL import Image
+import PIL
 
 CURATED_METHODS = {
     "cropD": {
@@ -177,7 +177,6 @@ def render_visualizer_tab():
         # 🛠️ Interactive Function Executor Section
         st.markdown("---")
         st.markdown('<div class="card-title">🛠️ Interactive Function Executor</div>', unsafe_allow_html=True)
-        st.markdown('<div class="card">', unsafe_allow_html=True)
 
         # Get list of functions
         if img is not None:
@@ -339,7 +338,7 @@ def render_visualizer_tab():
                     norm_slice = np.clip((slice_2d - min_contrast) / (max_contrast - min_contrast) * 255.0, 0, 255).astype(np.uint8)
                 else:
                     norm_slice = np.zeros_like(slice_2d, dtype=np.uint8)
-                pil_image = Image.fromarray(norm_slice)
+                pil_image = PIL.Image.fromarray(norm_slice)
                 st.image(
                     pil_image,
                     caption=f"`{axis.split()[0]}` @ `{slice_idx}` / `{max_slice}` │ color: `{int(min_contrast)}-{int(max_contrast)}` `{data.dtype}` │ span: `{shape}` × `{img.voxelSize}` + `{img.origin}`",
