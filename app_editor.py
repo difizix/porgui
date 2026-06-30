@@ -11,10 +11,28 @@ from app_utils import get_output_files
 # ----------------------------------------------------
 # TAB 1: WORKFLOW STUDIO
 # ----------------------------------------------------
+def _new_file_dialog(st):
+    """Show a blocking dialog to create a new workflow script."""
+    @st.dialog("Create New Workflow Script")
+    def _dialog():
+        name = st.text_input("File name", placeholder="my_workflow.py")
+        if st.button("✅ Create", use_container_width=True):
+            if name:
+                fname = name if name.endswith(".py") else name + ".py"
+                with open(fname, "w") as f:
+                    f.write("import image3kit as ik\n\n# Your code here\n")
+                st.session_state.last_executed_script = fname
+                st.rerun()
+            else:
+                st.error("Please enter a valid file name.")
+    _dialog()
+
+
 def workflow_studio(st, ik, update_workspace_vars):
 
     # Scan directory for workspace scripts
     script_files = sorted(glob.glob("*.py"))
+    options = script_files + ["➕ New File..."]
 
     if not script_files:
         st.warning("⚠️ No Python workflow scripts (*.py) found in the runs directory.")
@@ -25,10 +43,13 @@ def workflow_studio(st, ik, update_workspace_vars):
         with col_select:
             selected_script = st.selectbox(
                 "Select Workflow Script", 
-                script_files, 
-                index=0 if "last_executed_script" not in st.session_state or st.session_state.last_executed_script not in script_files else script_files.index(st.session_state.last_executed_script),
+                options, 
+                index=0 if "last_executed_script" not in st.session_state or st.session_state.last_executed_script not in options else options.index(st.session_state.last_executed_script),
                 label_visibility="collapsed"
             )
+            if selected_script == "➕ New File...":
+                _new_file_dialog(st)
+                st.stop()
             
         with col_args:
             args_input = st.text_input(
