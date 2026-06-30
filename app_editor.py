@@ -168,6 +168,12 @@ def workflow_studio(st, ik, update_workspace_vars):
         log_path = os.path.abspath(os.path.splitext(os.path.basename(selected_script))[0] + ".log")
         
         try:
+            script_dir = os.path.dirname(os.path.abspath(selected_script))
+            if script_dir not in sys.path:
+                sys.path.insert(0, script_dir)
+                _added_script_dir = True
+            else:
+                _added_script_dir = False
             with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
                 exec(script_code, exec_namespace)
             
@@ -176,9 +182,7 @@ def workflow_studio(st, ik, update_workspace_vars):
             st.success("Workflow completed successfully!")
             
             with open(log_path, "w") as lf:
-                lf.write(f"# Script: {selected_script}\n")
-                lf.write(f"# Args: {args_input}\n")
-                lf.write("# Status: OK\n\n")
+                lf.write(f"✅ cmd: '{selected_script} {args_input}':\n")
                 lf.write(captured_combined)
 
             lines = st.session_state.console_output.split("\n")
@@ -196,13 +200,14 @@ def workflow_studio(st, ik, update_workspace_vars):
             st.error("Workflow failed with execution error (or sys.exit was called).")
 
             with open(log_path, "w") as lf:
-                lf.write(f"# Script: {selected_script}\n")
-                lf.write(f"# Args: {args_input}\n")
+                lf.write(f"⛔ cmd: '{selected_script} {args_input}':\n")
                 lf.write("# Status: ERROR\n\n")
                 lf.write(err_text)
 
             update_workspace_vars(exec_namespace)
         finally:
+            if _added_script_dir and script_dir in sys.path:
+                sys.path.remove(script_dir)
             sys.argv = original_argv
             pngs, logs = get_output_files()
             st.session_state.png_files = pngs
