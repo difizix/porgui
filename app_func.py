@@ -224,7 +224,7 @@ def render_visualizer_tab():
                         found_files = []
                         for ext in extensions:
                             found_files.extend(glob.glob(ext))
-                            found_files.extend(glob.glob(ext.upper()))
+                            found_files.extend(glob.glob(f"*/{ext}"))
                         found_files = sorted(list(set(found_files)))
                         if not found_files:
                             st.warning("No compatible files found in runs/ directory.")

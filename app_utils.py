@@ -49,13 +49,13 @@ def parser2uiparams(parser, fixedargs=None, selected_log_file=None, top_dir=None
         ))
     return ui_params
 
-def get_output_files():
+def get_output_files(dir=top_dir/"runs"):
     png_files = []
     log_files = []
-    exclude_dirs = {".git", ".venv", "__pycache__", ".ruff_cache", ".agents", ".antigravity", "tmp-"}
+    exclude_dirs = {".git", ".venv", "__pycache__", ".deps", ".ruff_cache", ".agents", ".antigravity", "tmp-"}
 
     try:
-        for path in top_dir.rglob("*"):
+        for path in dir.rglob("*"):
             if path.is_dir():
                 continue
             if any(parent.name in exclude_dirs for parent in path.parents):
