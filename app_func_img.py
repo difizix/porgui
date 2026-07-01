@@ -38,7 +38,6 @@ CURATED_METHODS = {
     "threshold101": get_vxlImg_func_args("threshold101"),
     "write8bit":    get_vxlImg_func_args("write8bit"),
     "distMapExtrude": get_vxlImg_func_args("distMapExtrude"),
-    # TODO add pnmkit.mextract functions, or maybe as standalone function in PYTHON_FUNCTIONS
 }
 
 
@@ -60,7 +59,7 @@ for _pf_name, _pf_func in PYTHON_FUNCTIONS.items():
 # ----------------------------------------------------
 # TAB 2: INTERACTIVE VISUALIZER
 # ----------------------------------------------------
-def render_visualizer_tab():
+def render_imgpro_tab():
     if "generated_code" not in st.session_state:
         st.session_state.generated_code = None
 
