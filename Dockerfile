@@ -28,18 +28,31 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 WORKDIR /app
 
-COPY pnmkit /app/pnmkit
-# Install image3kit first (from pnmkit submodule), then pnmkit itself
-RUN pip install --no-cache-dir ./pnmkit/image3kit --config-settings=cmake.build-type=Release
-RUN pip install --no-cache-dir ./pnmkit --config-settings=cmake.build-type=Release
-
-
-
+# Cache step, just in case requirements.txt is changed
 RUN pip install --no-cache-dir \
     vtk \
     streamlit \
     streamlit_code_editor \
-    Pillow
+    Pillow \
+    pytest \
+    scipy \
+    sqlalchemy \
+    imageio \
+    imageio-ffmpeg
+
+# To be removed once pnmkit is stable
+# RUN git clone https://github.com/difizix/pnmkit.git pnmkit
+COPY pnmkit /app/pnmkit
+RUN pip install --no-cache-dir ./pnmkit/image3kit --config-settings=cmake.build-type=Release
+RUN pip install --no-cache-dir ./pnmkit --config-settings=cmake.build-type=Release
+
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# To be removed once pyvtk is stable
+# RUN git clone https://github.com/difizix/pyvtk.git pyvtk
+COPY pyvtk /app/pyvtk
+RUN pip install --no-cache-dir ./pyvtk --config-settings=cmake.build-type=Release
 
 COPY . /app
 
