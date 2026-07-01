@@ -3,6 +3,111 @@ import os
 import numpy as np
 import traceback
 import PIL
+import sys
+import argparse
+
+# Ensure workspace root is in sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+workspace_root = os.path.dirname(current_dir)
+if workspace_root not in sys.path:
+    sys.path.insert(0, workspace_root)
+
+def argparse_to_func(parser_factory, main_func):
+    parser = parser_factory()
+    params_meta = []
+    
+    for action in parser._actions:
+        if action.dest == "help" or isinstance(action, argparse._HelpAction):
+            continue
+            
+        p_name = action.dest
+        p_type = action.type if action.type is not None else str
+        
+        if isinstance(action, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
+            p_type = bool
+            
+        p_default = action.default
+        if p_default is argparse.SUPPRESS:
+            p_default = None
+            
+        p_desc = action.help or ""
+        
+        params_meta.append({
+            "name": p_name,
+            "type": p_type,
+            "default": p_default,
+            "desc": p_desc,
+            "action": action
+        })
+        
+    def wrapped_func(**kwargs):
+        cmd_args = []
+        for p in params_meta:
+            action = p["action"]
+            val = kwargs.get(p["name"], p["default"])
+            
+            if val is None and action.option_strings:
+                continue
+                
+            if action.option_strings:
+                opt_name = action.option_strings[0]
+                if isinstance(action, argparse._StoreTrueAction):
+                    if val:
+                        cmd_args.append(opt_name)
+                elif isinstance(action, argparse._StoreFalseAction):
+                    if not val:
+                        cmd_args.append(opt_name)
+                else:
+                    cmd_args.append(opt_name)
+                    cmd_args.append(str(val))
+            else:
+                if val is not None:
+                    cmd_args.append(str(val))
+                    
+        orig_argv = sys.argv
+        sys.argv = [main_func.__module__] + cmd_args
+        try:
+            return main_func()
+        finally:
+            sys.argv = orig_argv
+            
+    cleaned_params = []
+    for p in params_meta:
+        cleaned_params.append({
+            "name": p["name"],
+            "type": p["type"],
+            "default": p["default"] if p["default"] is not None else "",
+            "desc": p["desc"]
+        })
+        
+    return wrapped_func, cleaned_params
+
+# Wrap CLI Apps
+try:
+    import pyvtk.vtkXdmfScreenshot as vtk_screenshot
+    vtkXdmfScreenshot_func, vtkXdmfScreenshot_params = argparse_to_func(
+        vtk_screenshot.make_parser, vtk_screenshot.main
+    )
+except Exception as e:
+    vtkXdmfScreenshot_func = None
+    vtkXdmfScreenshot_params = []
+    print(f"Error loading vtkXdmfScreenshot: {e}")
+
+try:
+    import pyvtk.vtkXdmfAnimate as vtk_animate
+    vtkXdimate_func, vtkXdmfAnimate_params = argparse_to_func(
+        vtk_animate.make_parser, vtk_animate.main
+    )
+except Exception as e:
+    vtkXdimate_func = None
+    vtkXdmfAnimate_params = []
+    print(f"Error loading vtkXdmfAnimate: {e}")
+
+STANDALONE_FUNCTIONS = {
+    "vtkXdmfScreenshot": vtkXdmfScreenshot_func,
+    "vtkXdmfAnimate": vtkXdimate_func,
+}
+
 
 CURATED_METHODS = {
     "cropD": {
@@ -74,6 +179,19 @@ CURATED_METHODS = {
         "desc": "Load an image (.tif, .mhd, .am, .dat, .png) from the runs directory into the workspace."
     }
 }
+
+if vtkXdmfScreenshot_func:
+    CURATED_METHODS["vtkXdmfScreenshot"] = {
+        "params": vtkXdmfScreenshot_params,
+        "desc": "Run vtkXdmfScreenshot to capture PNG images of an XMF network model."
+    }
+if vtkXdimate_func:
+    CURATED_METHODS["vtkXdmfAnimate"] = {
+        "params": vtkXdmfAnimate_params,
+        "desc": "Run vtkXdmfAnimate to compile frames of an XMF network model to an MP4 video."
+    }
+# pnmkit CLI not needed
+
 
 # ----------------------------------------------------
 # TAB 2: INTERACTIVE VISUALIZER
@@ -179,10 +297,12 @@ def render_visualizer_tab():
         st.markdown('<div class="card-title">🛠️ Interactive Function Executor</div>', unsafe_allow_html=True)
 
         # Get list of functions
+        standalone_options = ["vtkXdmfScreenshot", "vtkXdmfAnimate"]
+        available_standalones = [f for f in standalone_options if f in CURATED_METHODS]
         if img is not None:
             func_options = sorted(list(CURATED_METHODS.keys()))
         else:
-            func_options = ["loadImg"]
+            func_options = sorted(["loadImg"] + available_standalones)
 
         selected_func = st.selectbox("Select Function to Execute", func_options, key="exec_func_sel")
 
@@ -238,7 +358,8 @@ def render_visualizer_tab():
         else:
             st.info("This function does not take any arguments.")
 
-        if selected_func != "loadImg":
+        is_standalone = selected_func in ["vtkXdmfScreenshot", "vtkXdmfAnimate"]
+        if selected_func != "loadImg" and not is_standalone:
             st.write("---")
             st.write("##### Execution Options:")
             col_opt1, col_opt2 = st.columns([1, 1])
@@ -276,6 +397,20 @@ def render_visualizer_tab():
                         st.session_state.session_commands = command_line
 
                     st.success(f"Loaded {filename} as `{var_name}`!")
+                    st.rerun()
+                elif is_standalone:
+                    func_to_run = STANDALONE_FUNCTIONS[selected_func]
+                    result = func_to_run(**args)
+                    
+                    args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
+                    command_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
+                        
+                    if st.session_state.session_commands:
+                        st.session_state.session_commands += f"\n\n{command_line}"
+                    else:
+                        st.session_state.session_commands = command_line
+                        
+                    st.success(f"Successfully executed standalone command `{selected_func}`!")
                     st.rerun()
                 else:
                     # Prepare object to run on
