@@ -34,12 +34,6 @@ def workflow_studio(st, ik, update_workspace_vars):
     script_files = sorted(glob.glob("*.py"))
     options = script_files + ["➕ New File..."]
 
-    if not script_files:
-        st.warning("⚠️ No Python workflow scripts (*.py) found in the runs directory.")
-        _new_file_dialog(st)
-        st.stop()
-        return
-
     # Consolidation bar at the top
     col_select, col_args, col_actions = st.columns([1.5, 2, 1.5])
     

@@ -4,7 +4,9 @@ import numpy as np
 import traceback
 import PIL
 import sys
-import argparse
+
+from app_utils import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args
+from user_common_funcs import loadImg
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -12,191 +14,53 @@ workspace_root = os.path.dirname(current_dir)
 if workspace_root not in sys.path:
     sys.path.insert(0, workspace_root)
 
-def argparse_to_func(parser_factory, main_func):
-    parser = parser_factory()
-    params_meta = []
-    
-    for action in parser._actions:
-        if action.dest == "help" or isinstance(action, argparse._HelpAction):
-            continue
-            
-        p_name = action.dest
-        p_type = action.type if action.type is not None else str
-        
-        if isinstance(action, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
-            p_type = bool
-            
-        p_default = action.default
-        if p_default is argparse.SUPPRESS:
-            p_default = None
-            
-        p_desc = action.help or ""
-        
-        params_meta.append({
-            "name": p_name,
-            "type": p_type,
-            "default": p_default,
-            "desc": p_desc,
-            "action": action
-        })
-        
-    def wrapped_func(**kwargs):
-        cmd_args = []
-        for p in params_meta:
-            action = p["action"]
-            val = kwargs.get(p["name"], p["default"])
-            
-            if val is None and action.option_strings:
-                continue
-                
-            if action.option_strings:
-                opt_name = action.option_strings[0]
-                if isinstance(action, argparse._StoreTrueAction):
-                    if val:
-                        cmd_args.append(opt_name)
-                elif isinstance(action, argparse._StoreFalseAction):
-                    if not val:
-                        cmd_args.append(opt_name)
-                else:
-                    cmd_args.append(opt_name)
-                    cmd_args.append(str(val))
-            else:
-                if val is not None:
-                    cmd_args.append(str(val))
-                    
-        orig_argv = sys.argv
-        sys.argv = [main_func.__module__] + cmd_args
-        try:
-            return main_func()
-        finally:
-            sys.argv = orig_argv
-            
-    cleaned_params = []
-    for p in params_meta:
-        cleaned_params.append({
-            "name": p["name"],
-            "type": p["type"],
-            "default": p["default"] if p["default"] is not None else "",
-            "desc": p["desc"]
-        })
-        
-    return wrapped_func, cleaned_params
-
 # Wrap CLI Apps
-try:
-    import pyvtk.vtkXdmfScreenshot as vtk_screenshot
-    vtkXdmfScreenshot_func, vtkXdmfScreenshot_params = argparse_to_func(
-        vtk_screenshot.make_parser, vtk_screenshot.main
-    )
-except Exception as e:
-    vtkXdmfScreenshot_func = None
-    vtkXdmfScreenshot_params = []
-    print(f"Error loading vtkXdmfScreenshot: {e}")
-
-try:
-    import pyvtk.vtkXdmfAnimate as vtk_animate
-    vtkXdimate_func, vtkXdmfAnimate_params = argparse_to_func(
-        vtk_animate.make_parser, vtk_animate.main
-    )
-except Exception as e:
-    vtkXdimate_func = None
-    vtkXdmfAnimate_params = []
-    print(f"Error loading vtkXdmfAnimate: {e}")
 
 STANDALONE_FUNCTIONS = {
-    "vtkXdmfScreenshot": vtkXdmfScreenshot_func,
-    "vtkXdmfAnimate": vtkXdimate_func,
+    "vtkXdmfScreenshot": ("pyvtk.vtkXdmfScreenshot", "make_parser", "main"),
+    "vtkXdmfAnimate": ("pyvtk.vtkXdmfAnimate", "make_parser", "main"),
 }
 
+PYTHON_FUNCTIONS = {
+    "loadImg": loadImg,
+    # add more fully-annotated Python functions here
+    # TODO add snflow
+}
 
 CURATED_METHODS = {
-    "cropD": {
-        "params": [
-            {"name": "begin", "type": tuple, "default": (0, 0, 300), "desc": "Begin indices (x, y, z)"},
-            {"name": "end", "type": tuple, "default": (467, 1775, 580), "desc": "End indices (x, y, z)"},
-            {"name": "emptyLayers", "type": int, "default": 0, "desc": "Number of empty layers"},
-            {"name": "emptyLayersValue", "type": int, "default": 1, "desc": "Value for empty layers"},
-            {"name": "verbose", "type": bool, "default": False, "desc": "Verbose output"}
-        ],
-        "desc": "Crop the image (inplace) from begin index tuple to end index tuple."
-    },
-    "medianFilter": {
-        "params": [],
-        "desc": "Apply a 1+6-neighbour median filter in-place."
-    },
-    "dering": {
-        "params": [
-            {"name": "x0", "type": int, "default": 374, "desc": "Center X of ring at z=0"},
-            {"name": "y0", "type": int, "default": 853, "desc": "Center Y of ring at z=0"},
-            {"name": "x1", "type": int, "default": 374, "desc": "Center X of ring at end of image"},
-            {"name": "y1", "type": int, "default": 853, "desc": "Center Y of ring at end of image"},
-            {"name": "nr", "type": int, "default": 1000, "desc": "Width of ring artefacts (voxels)"},
-            {"name": "ntheta", "type": int, "default": 32, "desc": "Number of angles"},
-            {"name": "nz", "type": int, "default": 148, "desc": "Number of layers"},
-            {"name": "min_val", "type": int, "default": 8500, "desc": "Min voxel-value range for ring detection"},
-            {"name": "max_val", "type": int, "default": 12000, "desc": "Max voxel-value range for ring detection"},
-            {"name": "nGrowBox", "type": int, "default": 20, "desc": "Grow box size near image boundary"},
-            {"name": "write_dumps", "type": bool, "default": False, "desc": "Write dump files for debugging"}
-        ],
-        "desc": "Remove ring artefacts from the image."
-    },
-    "segment2": {
-        "params": [
-            {"name": "thresholds", "type": list, "default": [0, 6000, 65535], "desc": "Threshold values list"},
-            {"name": "min_sizes", "type": list, "default": [1, 3], "desc": "Minimum component sizes list"},
-            {"name": "noise_val", "type": float, "default": 2.0, "desc": "Noise value"},
-            {"name": "local_factor", "type": float, "default": 0.05, "desc": "Local factor"},
-            {"name": "flatnes", "type": float, "default": 0.1, "desc": "Flatness factor"},
-            {"name": "effective_resolution", "type": float, "default": 2.0, "desc": "Effective resolution"},
-            {"name": "gradient_factor", "type": float, "default": 0.0, "desc": "Gradient factor"},
-            {"name": "kernel_radius", "type": int, "default": 2, "desc": "Kernel radius"},
-            {"name": "n_iterations", "type": int, "default": 13, "desc": "Number of iterations"},
-            {"name": "write_dumps", "type": int, "default": 0, "desc": "Write dump files (0/1)"}
-        ],
-        "desc": "Apply multi-threshold segmentation."
-    },
-    "threshold101": {
-        "params": [
-            {"name": "min", "type": int, "default": 1, "desc": "Minimum threshold value"},
-            {"name": "max", "type": int, "default": 6000, "desc": "Maximum threshold value"}
-        ],
-        "desc": "Threshold values in range [min, max] to 0, and others to 1."
-    },
-    "write8bit": {
-        "params": [
-            {"name": "filename", "type": str, "default": "volume_out.raw.gz", "desc": "Output filename (.raw/.raw.gz)"},
-            {"name": "min", "type": float, "default": 0.0, "desc": "Min scale value (maps to 0)"},
-            {"name": "max", "type": float, "default": 25500.0, "desc": "Max scale value (maps to 255)"}
-        ],
-        "desc": "Write the image as an 8-bit raw.gz file, scaled between min and max."
-    },
-    "loadImg": {
-        "params": [
-            {"name": "filename", "type": "file_dropdown", "default": "", "desc": "Select image file to load from current directory"},
-            {"name": "img_type", "type": "type_dropdown", "default": "VxlImgU16", "desc": "Select image precision/type"},
-            {"name": "new_var_name", "type": str, "default": "img", "desc": "Variable name to store in workspace"}
-        ],
-        "desc": "Load an image (.tif, .mhd, .am, .dat, .png) from the runs directory into the workspace."
-    }
+    "cropD":        get_vxlImg_func_args("cropD"),
+    "medianFilter": get_vxlImg_func_args("medianFilter"),
+    "dering":       get_vxlImg_func_args("dering"),
+    "segment2":     get_vxlImg_func_args("segment2"),
+    "threshold101": get_vxlImg_func_args("threshold101"),
+    "write8bit":    get_vxlImg_func_args("write8bit"),
+    "distMapExtrude": get_vxlImg_func_args("distMapExtrude"),
+    # TODO add pnmkit.mextract functions, or maybe as standalone function in PYTHON_FUNCTIONS
 }
 
-if vtkXdmfScreenshot_func:
-    CURATED_METHODS["vtkXdmfScreenshot"] = {
-        "params": vtkXdmfScreenshot_params,
-        "desc": "Run vtkXdmfScreenshot to capture PNG images of an XMF network model."
-    }
-if vtkXdimate_func:
-    CURATED_METHODS["vtkXdmfAnimate"] = {
-        "params": vtkXdmfAnimate_params,
-        "desc": "Run vtkXdmfAnimate to compile frames of an XMF network model to an MP4 video."
-    }
-# pnmkit CLI not needed
 
+for _sf_name, _sf_tuple in STANDALONE_FUNCTIONS.items():
+    try:
+        _func, _params = get_module_func_args(*_sf_tuple)
+        if _func:
+            CURATED_METHODS[_sf_name] = {
+                "params": _params,
+                "desc": f"Run {_sf_name} standalone CLI script."
+            }
+    except Exception as _e:
+        print(f"Warning: could not load {_sf_name}: {_e}")
+
+# Register fully-annotated Python functions into CURATED_METHODS
+for _pf_name, _pf_func in PYTHON_FUNCTIONS.items():
+    CURATED_METHODS[_pf_name] = func_args_from_inspect(_pf_func)
 
 # ----------------------------------------------------
 # TAB 2: INTERACTIVE VISUALIZER
 # ----------------------------------------------------
 def render_visualizer_tab():
+    if "generated_code" not in st.session_state:
+        st.session_state.generated_code = None
+
     # Dropdown to choose which image variable from workspace to visualize
     if st.session_state.processed_image is not None and "img" not in st.session_state.workspace_vars:
         st.session_state.workspace_vars["img"] = st.session_state.processed_image
@@ -302,7 +166,7 @@ def render_visualizer_tab():
         if img is not None:
             func_options = sorted(list(CURATED_METHODS.keys()))
         else:
-            func_options = sorted(["loadImg"] + available_standalones)
+            func_options = sorted(list(PYTHON_FUNCTIONS.keys()) + available_standalones)
 
         selected_func = st.selectbox("Select Function to Execute", func_options, key="exec_func_sel")
 
@@ -328,9 +192,17 @@ def render_visualizer_tab():
                     if p_type is bool:
                         args[p_name] = st.checkbox(f"{p_name}", value=p_default, help=p_desc, key=f"func_arg_{p_name}")
                     elif p_type is int:
-                        args[p_name] = st.number_input(f"{p_name} (int)", value=int(p_default), step=1, help=p_desc, key=f"func_arg_{p_name}")
+                        try:
+                            val = int(p_default)
+                        except (ValueError, TypeError):
+                            val = 0
+                        args[p_name] = st.number_input(f"{p_name} (int)", value=val, step=1, help=p_desc, key=f"func_arg_{p_name}")
                     elif p_type is float:
-                        args[p_name] = st.number_input(f"{p_name} (float)", value=float(p_default), step=0.1, help=p_desc, key=f"func_arg_{p_name}")
+                        try:
+                            val = float(p_default)
+                        except (ValueError, TypeError):
+                            val = 0.0
+                        args[p_name] = st.number_input(f"{p_name} (float)", value=val, step=0.1, help=p_desc, key=f"func_arg_{p_name}")
                     elif p_type in (list, tuple):
                         val_str = st.text_input(f"{p_name} ({p_type.__name__})", value=str(p_default), help=p_desc, key=f"func_arg_{p_name}")
                         try:
@@ -359,7 +231,9 @@ def render_visualizer_tab():
             st.info("This function does not take any arguments.")
 
         is_standalone = selected_func in ["vtkXdmfScreenshot", "vtkXdmfAnimate"]
-        if selected_func != "loadImg" and not is_standalone:
+        out_var_name = ""
+        copy_on_write = True
+        if selected_func not in PYTHON_FUNCTIONS and not is_standalone:
             st.write("---")
             st.write("##### Execution Options:")
             col_opt1, col_opt2 = st.columns([1, 1])
@@ -368,39 +242,61 @@ def render_visualizer_tab():
             with col_opt2:
                 copy_on_write = st.checkbox("Copy first (protect original image)", value=True, help="If unchecked, the operation is run in-place modifying the selected variable.")
 
-        if st.button("▶️ Run Function", key="btn_run_interactive_func", width="stretch"):
+        # Update last selected function tracker and reset generated code if function changed
+        if "last_selected_func" not in st.session_state:
+            st.session_state.last_selected_func = selected_func
+        elif st.session_state.last_selected_func != selected_func:
+            st.session_state.last_selected_func = selected_func
+            st.session_state.generated_code = None
+
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            btn_gen = st.button("📋 Generate Code", key="btn_gen_interactive_func", use_container_width=True)
+        with col_btn2:
+            btn_run = st.button("▶️ Run Function", key="btn_run_interactive_func", use_container_width=True)
+
+        if btn_gen:
             try:
-                if selected_func == "loadImg":
-                    filename = args["filename"]
-                    img_type = args["img_type"]
-                    var_name = args["new_var_name"]
-                    if not filename:
+                st.session_state.generated_code = args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
+            except Exception as gen_err:
+                st.error(f"Failed to generate code: {gen_err}")
+
+        if btn_run:
+            try:
+                is_python_func = selected_func in PYTHON_FUNCTIONS
+                if is_python_func:
+                    func_to_call = PYTHON_FUNCTIONS[selected_func]
+                    # Extract the output variable name from the args if present
+                    var_name = args.pop("new_var_name", None) or out_var_name or selected_func
+                    filename = args.get("filename", "")
+                    if "filename" in args and not args["filename"]:
                         st.error("Please select a file to load.")
                         st.stop()
+                    result = func_to_call(**args)
 
-                    if img_type == "VxlImgU16":
-                        loaded_obj = st.session_state.original_VxlImgU16(filename)
-                    elif img_type == "VxlImgU8":
-                        loaded_obj = st.session_state.original_VxlImgU8(filename)
-                    else:
-                        loaded_obj = st.session_state.original_VxlImgF32(filename)
+                    is_vxl = isinstance(result, (
+                        st.session_state.original_VxlImgU16,
+                        st.session_state.original_VxlImgU8,
+                        st.session_state.original_VxlImgF32,
+                    ))
+                    if is_vxl:
+                        cache_key = f"{type(result).__name__}_{os.path.abspath(filename)}"
+                        st.session_state.image_cache[cache_key] = result
+                        st.session_state.workspace_vars[var_name] = result
+                        st.session_state.processed_image = result
 
-                    cache_key = f"{img_type}_{os.path.abspath(filename)}"
-                    st.session_state.image_cache[cache_key] = loaded_obj
-                    st.session_state.workspace_vars[var_name] = loaded_obj
-                    st.session_state.processed_image = loaded_obj
-
-                    command_line = f"{var_name} = ik.{img_type}('{filename}')"
+                    args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
+                    command_line = f"{var_name} = {selected_func}({args_str})"
                     if st.session_state.session_commands:
                         st.session_state.session_commands += f"\n\n{command_line}"
                     else:
                         st.session_state.session_commands = command_line
 
-                    st.success(f"Loaded {filename} as `{var_name}`!")
+                    st.success(f"Executed `{selected_func}`, result stored as `{var_name}`.")
                     st.rerun()
                 elif is_standalone:
-                    func_to_run = STANDALONE_FUNCTIONS[selected_func]
-                    result = func_to_run(**args)
+                    _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
+                    result = _func(**args)
                     
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     command_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
@@ -453,6 +349,12 @@ def render_visualizer_tab():
             except Exception as run_err:
                 st.error(f"Execution failed: {run_err}")
                 st.code(traceback.format_exc())
+
+        # Display generated code block if available
+        if st.session_state.generated_code:
+            st.markdown("---")
+            st.markdown("##### 📋 Generated Python Code:")
+            st.code(st.session_state.generated_code, language="python")
 
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")

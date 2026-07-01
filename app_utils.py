@@ -1,3 +1,4 @@
+import argparse
 import inspect
 import json
 import re
@@ -21,6 +22,7 @@ class FormParam:
         self.help_text = help_text
         self.is_iterable = is_iterable
 
+# Used in difiz, why not here?
 def parser2uiparams(parser, fixedargs=None, selected_log_file=None, top_dir=None) -> list:
     if fixedargs is None:
         fixedargs = {}
@@ -48,6 +50,140 @@ def parser2uiparams(parser, fixedargs=None, selected_log_file=None, top_dir=None
             is_iterable=is_iterable
         ))
     return ui_params
+
+
+def get_module_func_args(module_name: str, argparse_func_name, main_func_name):
+    try:
+        module = __import__(module_name)
+        parser_factory = getattr(module, argparse_func_name)
+        main_func = getattr(module, main_func_name)
+    except Exception as e:
+        print(f"Error loading {module_name}: {e}")
+        return None, []
+
+    parser = parser_factory()
+    params_meta = []
+
+    for action in parser._actions:
+        if action.dest == "help" or isinstance(action, argparse._HelpAction):
+            continue
+
+        p_name = action.dest
+        p_type = action.type if action.type is not None else str
+
+        if isinstance(action, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
+            p_type = bool
+
+        p_default = action.default
+        if p_default is argparse.SUPPRESS:
+            p_default = None
+
+        p_desc = action.help or ""
+
+        params_meta.append({
+            "name": p_name,
+            "type": p_type,
+            "default": p_default,
+            "desc": p_desc,
+            "action": action
+        })
+
+    def wrapped_func(**kwargs):
+        cmd_args = []
+        for p in params_meta:
+            action = p["action"]
+            val = kwargs.get(p["name"], p["default"])
+
+            if val is None and action.option_strings:
+                continue
+
+            if action.option_strings:
+                opt_name = action.option_strings[0]
+                if isinstance(action, argparse._StoreTrueAction):
+                    if val:
+                        cmd_args.append(opt_name)
+                elif isinstance(action, argparse._StoreFalseAction):
+                    if not val:
+                        cmd_args.append(opt_name)
+                else:
+                    cmd_args.append(opt_name)
+                    cmd_args.append(str(val))
+            else:
+                if val is not None:
+                    cmd_args.append(str(val))
+
+        orig_argv = sys.argv
+        sys.argv = [main_func.__module__] + cmd_args
+        try:
+            return main_func()
+        finally:
+            sys.argv = orig_argv
+
+    cleaned_params = []
+    for p in params_meta:
+        cleaned_params.append({
+            "name": p["name"],
+            "type": p["type"],
+            "default": p["default"] if p["default"] is not None else "",
+            "desc": p["desc"]
+        })
+
+    return wrapped_func, cleaned_params
+
+
+
+def func_args_from_inspect(func) -> dict:
+    """Extract params from a fully-annotated Python function using inspect.
+
+    The function must have full type annotations on all parameters.
+    Use FileDropdown / ImageType from user_common_funcs.py as annotation types to
+    get special Streamlit widgets instead of a plain text input.
+
+    Returns {"params": [...], "desc": "..."} compatible with CURATED_METHODS.
+    """
+    sig = inspect.signature(func)
+    doc = inspect.getdoc(func) or ""
+    params = []
+    for name, param in sig.parameters.items():
+        annotation = param.annotation
+        default = param.default if param.default is not inspect.Parameter.empty else None
+
+        # Resolve Annotated[X, "hint"] → use the hint string as the UI type key,
+        # so the renderer can pick the right widget (file_dropdown, type_dropdown, …)
+        origin = getattr(annotation, "__metadata__", None)
+        if origin:                              # it's an Annotated type
+            ui_type = origin[0]                 # e.g. "file_dropdown"
+        elif annotation is inspect.Parameter.empty:
+            ui_type = str
+        else:
+            ui_type = annotation                # plain Python type: int, float, bool, str, …
+
+        params.append({
+            "name": name,
+            "type": ui_type,
+            "default": default if default is not None else "",
+            "desc": name,   # callers can override via extra_help or docstring parsing
+        })
+
+    return {"params": params, "desc": doc}
+
+
+def args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone):
+    if selected_func == "loadImg":
+        filename = args["filename"]
+        img_type = args["img_type"]
+        var_name = args["new_var_name"]
+        cmd_line = f"{var_name} = ik.{img_type}('{filename}')"
+    elif is_standalone:
+        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
+        cmd_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
+    else:
+        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
+        if copy_on_write:
+            cmd_line = f"{out_var_name} = {selected_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
+        else:
+            cmd_line = f"{out_var_name} = {selected_var}\n{out_var_name}.{selected_func}({args_str})"
+    return cmd_line
 
 def get_output_files(dir=top_dir/"runs"):
     png_files = []
@@ -195,15 +331,22 @@ def render_parseargs(params, key_prefix=""):
     return args_dict
 
 
-def parse_pybind_docstring(docstring):
-    if not docstring:
-        return []
-    first_line = docstring.strip().split("\n")[0]
+
+def func_args_from_pybind_doc(doc: str) -> dict:
+    """Parse a pybind11 method docstring into a CURATED_METHODS-compatible dict.
+
+    Returns {"params": [...], "desc": "..."} where desc comes from lines after
+    the signature, and params are parsed from the signature's type annotations.
+    """
+    if not doc:
+        return {"params": [], "desc": ""}
+    lines = doc.strip().split("\n")
+    desc = "\n".join(lines[1:]).strip().replace("\n", " ")
+    first_line = lines[0]
     match = re.match(r"^\w+\((.*)\)(?:\s*->\s*\w+)?", first_line)
     if not match:
-        return []
+        return {"params": [], "desc": desc}
     arg_list_str = match.group(1)
-    args = []
     parts = []
     current = []
     bracket_depth = 0
@@ -220,7 +363,7 @@ def parse_pybind_docstring(docstring):
             current.append(char)
     if current:
         parts.append("".join(current).strip())
-        
+    params = []
     for part in parts:
         if not part or part.startswith("self"):
             continue
@@ -262,11 +405,22 @@ def parse_pybind_docstring(docstring):
                     default_val = eval(default_str)
             except Exception:
                 default_val = default_str
-                
-        args.append({
-            "name": name,
-            "type": py_type,
-            "default": default_val,
-            "desc": f"Type: {type_str}"
-        })
-    return args
+
+        params.append({"name": name, "type": py_type, "default": default_val, "desc": f"Type: {type_str}"})
+    return {"params": params, "desc": desc}
+
+
+def get_vxlImg_func_args(func_name: str, extra_help=None):
+    """Parse args for a VxlImgU8 method from its pybind11 docstring.
+    Returns a dict {"params": [...], "desc": "..."} compatible with CURATED_METHODS.
+    Falls back to empty params if parsing fails.
+    """
+    import image3kit as ik
+    func = getattr(ik.VxlImgU8, func_name, None)
+    if not func:
+        return {"params": [], "desc": f"Function {func_name} not found.\n\n{extra_help}"}
+
+    ret_dict = func_args_from_pybind_doc(func.__doc__ or "")
+    if extra_help:
+        ret_dict["desc"] += f"\n\n{extra_help}"
+    return ret_dict
