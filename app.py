@@ -212,21 +212,21 @@ if "filter_version" not in st.session_state:
 
 
 # Main Tab Layout
-tabs = st.tabs(["💻 Workflow Studio", "🖼️ Interactive Visualizer", "📊 Saved Plots", "📄 Log Files"])
+tabs = st.tabs(["🖼️ Interactive Visualizer", "💻 Workflow Studio", "📊 Saved Plots", "📄 Log Files"])
 
 # ----------------------------------------------------
-# TAB 1: Editor
+# TAB 1: INTERACTIVE VISUALIZER
 # ----------------------------------------------------
 with tabs[0]:
-    import app_editor
-    app_editor.workflow_studio(st, ik, update_workspace_vars)
-    
-# ----------------------------------------------------
-# TAB 2: INTERACTIVE VISUALIZER
-# ----------------------------------------------------
-with tabs[1]:
     import app_func
     app_func.render_visualizer_tab()
+
+# ----------------------------------------------------
+# TAB 2: WORKFLOW STUDIO
+# ----------------------------------------------------
+with tabs[1]:
+    import app_editor
+    app_editor.workflow_studio(st, ik, update_workspace_vars)
 
 # ----------------------------------------------------
 # TAB 3: SAVED PLOTS

@@ -4,9 +4,10 @@ import numpy as np
 import traceback
 import PIL
 import sys
+import argparse
 
 from app_utils import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args
-from user_common_funcs import loadImg
+from user_common_funcs import loadImg, mextract, snflow
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,12 +20,14 @@ if workspace_root not in sys.path:
 STANDALONE_FUNCTIONS = {
     "vtkXdmfScreenshot": ("pyvtk.vtkXdmfScreenshot", "make_parser", "main"),
     "vtkXdmfAnimate": ("pyvtk.vtkXdmfAnimate", "make_parser", "main"),
+    "vtkFoamEnd2Png": ("pyvtk.vtkFoamEnd2Png", "make_parser", "main"),
+    "vtkFoamAnimate": ("pyvtk.vtkFoamAnimate", "make_parser", "main"),
 }
 
 PYTHON_FUNCTIONS = {
     "loadImg": loadImg,
-    # add more fully-annotated Python functions here
-    # TODO add snflow
+    "mextract": mextract,
+    "snflow": snflow,
 }
 
 CURATED_METHODS = {
@@ -72,13 +75,15 @@ def render_visualizer_tab():
 
         var_options = list(st.session_state.workspace_vars.keys())
         if var_options:
-            selected_var = st.selectbox("Select Active Image Variable", var_options, index=0, key="active_var_selectbox")
+            c1, c2 = st.columns([2, 3])
+            with c1:
+                st.markdown("<div style='padding-top: 6px;'><b>Active Image Variable:</b></div>", unsafe_allow_html=True)
+            with c2:
+                selected_var = st.selectbox("Select Active Image Variable", var_options, index=0, key="active_var_selectbox", label_visibility="collapsed")
             img = st.session_state.workspace_vars[selected_var]
         else:
             selected_var = None
 
-        # Render Slice Viewer if we have an image
-        st.markdown('<div class="card-title">🖼️ Live 3D Slice Viewer (In-Memory)</div>', unsafe_allow_html=True)
 
         with st.expander("📤 Upload & Load Image to Cache"):
             uploaded_file = st.file_uploader("Upload Image (TIFF, MHD/RAW, PNG, AM, DAT)", type=["tif", "tiff", "mhd", "raw", "dat", "png", "am"], key="uploader_widget")
@@ -127,48 +132,64 @@ def render_visualizer_tab():
         if img is not None:
             data = img.data
             shape = data.shape
-            axis = st.selectbox("Slice Normal Axis", ["Z (Axial)", "Y (Coronal)", "X (Sagittal)"], key="view_axis_sel")
+            c1_ax, c2_ax = st.columns([2, 2])
+            with c1_ax:
+                st.markdown("<div style='padding-top: 6px;'><b>View Normal Axis:</b></div>", unsafe_allow_html=True)
+            with c2_ax:
+                axis = st.selectbox("View Normal Axis", ["Z (Axial)", "Y (Coronal)", "X (Sagittal)"], key="view_axis_sel", label_visibility="collapsed")
             axis_idx = 2 if "Z" in axis else (1 if "Y" in axis else 0)
             max_slice = shape[axis_idx] - 1
             if max_slice <= 0:
                 st.caption("Slice Index: 0 (Dimension size is 1)")
                 slice_idx = 0
             else:
-                slice_idx = st.slider("Select Slice Index", 0, int(max_slice), int(max_slice // 2), key="slice_slider")
+                c1_sl, c2_sl = st.columns([1, 3])
+                with c1_sl:
+                    st.markdown("<div style='padding-top: 6px;'><b>Select Slice Index:</b></div>", unsafe_allow_html=True)
+                with c2_sl:
+                    slice_idx = st.slider("Slice Index", 0, int(max_slice), int(max_slice // 2), key="slice_slider", label_visibility="collapsed")
             
             data_min = float(data.min())
             data_max = float(data.max())
             if data_min >= data_max:
-                st.caption(f"Contrast Range Window: {data_min} (Constant image value)")
+                st.caption(f"Contrast Range: {data_min} (Constant image value)")
                 min_contrast, max_contrast = data_min, data_max
             else:
                 default_start = data_min
                 default_end = data_max
                 
-                val_range = st.slider(
-                    "Contrast Range Window",
-                    data_min, data_max,
-                    (default_start, default_end),
-                    key="contrast_slider"
-                )
+                c1_co, c2_co = st.columns([1, 3])
+                with c1_co:
+                    st.markdown("<div style='padding-top: 6px;'><b>Contrast Range:</b></div>", unsafe_allow_html=True)
+                with c2_co:
+                    val_range = st.slider(
+                        "Contrast Range",
+                        data_min, data_max,
+                        (default_start, default_end),
+                        key="contrast_slider",
+                        label_visibility="collapsed"
+                    )
                 min_contrast, max_contrast = val_range
         else:
-            st.info("No active image found in memory workspace. Run a workflow or upload an image to begin.")
+            st.info("No image loaded yet. Run a workflow or upload an image to begin.")
 
 
         # 🛠️ Interactive Function Executor Section
-        st.markdown("---")
         st.markdown('<div class="card-title">🛠️ Interactive Function Executor</div>', unsafe_allow_html=True)
 
         # Get list of functions
-        standalone_options = ["vtkXdmfScreenshot", "vtkXdmfAnimate"]
+        standalone_options = list(STANDALONE_FUNCTIONS.keys())
         available_standalones = [f for f in standalone_options if f in CURATED_METHODS]
         if img is not None:
             func_options = sorted(list(CURATED_METHODS.keys()))
         else:
             func_options = sorted(list(PYTHON_FUNCTIONS.keys()) + available_standalones)
 
-        selected_func = st.selectbox("Select Function to Execute", func_options, key="exec_func_sel")
+        c1_fn, c2_fn = st.columns([2, 3])
+        with c1_fn:
+            st.markdown("<div style='padding-top: 6px;'><b>Function to Execute:</b></div>", unsafe_allow_html=True)
+        with c2_fn:
+            selected_func = st.selectbox("Function to Execute:", func_options, key="exec_func_sel", label_visibility="collapsed")
 
         # Display description
         st.markdown(f"**Description**: *{CURATED_METHODS[selected_func]['desc']}*")
@@ -210,27 +231,59 @@ def render_visualizer_tab():
                         except Exception:
                             st.error(f"Invalid format for {p_name}")
                             args[p_name] = p_default
-                    elif p_type == "file_dropdown":
+                    elif p_type == "var_dropdown":
+                        var_options = list(st.session_state.workspace_vars.keys())
+                        if not var_options:
+                            st.warning("No variables found in workspace.")
+                            args[p_name] = ""
+                        else:
+                            default_idx = var_options.index(p_default) if p_default in var_options else 0
+                            args[p_name] = st.selectbox(f"{p_name}", var_options, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
+                    elif p_type in ("img_dropdown", "file_dropdown"):
                         import glob
-                        extensions = ["*.tif", "*.tiff", "*.am", "*.png", "*.mhd", "*.dat"]
+                        extensions = ["*.tif", "*.tiff", "*.am", "*.png", "*.mhd", "*.dat", "*.raw"]
                         found_files = []
                         for ext in extensions:
                             found_files.extend(glob.glob(ext))
                             found_files.extend(glob.glob(f"*/{ext}"))
                         found_files = sorted(list(set(found_files)))
                         if not found_files:
-                            st.warning("No compatible files found in runs/ directory.")
+                            st.warning("No compatible image files found in runs/ directory.")
                             args[p_name] = ""
                         else:
-                            args[p_name] = st.selectbox(f"{p_name}", found_files, key=f"func_arg_{p_name}", help=p_desc)
+                            default_idx = found_files.index(p_default) if p_default in found_files else 0
+                            args[p_name] = st.selectbox(f"{p_name}", found_files, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
+                    elif p_type == "xmf_dropdown":
+                        import glob
+                        found_files = []
+                        for ext in ["*.xmf", "*.xdmf"]:
+                            found_files.extend(glob.glob(ext))
+                            found_files.extend(glob.glob(f"*/{ext}"))
+                        found_files = sorted(list(set(found_files)))
+                        if not found_files:
+                            st.warning("No .xmf files found in runs/ directory.")
+                            args[p_name] = ""
+                        else:
+                            default_idx = found_files.index(p_default) if p_default in found_files else 0
+                            args[p_name] = st.selectbox(f"{p_name}", found_files, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
+                    elif p_type == "case_dropdown":
+                        found_dirs = sorted([d for d in os.listdir(".") if os.path.isdir(d) and not d.startswith(".")])
+                        if not found_dirs:
+                            st.warning("No case directories found in runs/ directory.")
+                            args[p_name] = ""
+                        else:
+                            default_idx = found_dirs.index(p_default) if p_default in found_dirs else 0
+                            args[p_name] = st.selectbox(f"{p_name}", found_dirs, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
                     elif p_type == "type_dropdown":
-                        args[p_name] = st.selectbox(f"{p_name}", ["VxlImgU16", "VxlImgU8", "VxlImgF32"], key=f"func_arg_{p_name}", help=p_desc)
+                        type_options = ["VxlImgU16", "VxlImgU8", "VxlImgF32"]
+                        default_idx = type_options.index(p_default) if p_default in type_options else 0
+                        args[p_name] = st.selectbox(f"{p_name}", type_options, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
                     else:
                         args[p_name] = st.text_input(f"{p_name}", value=str(p_default), help=p_desc, key=f"func_arg_{p_name}")
         else:
             st.info("This function does not take any arguments.")
 
-        is_standalone = selected_func in ["vtkXdmfScreenshot", "vtkXdmfAnimate"]
+        is_standalone = selected_func in STANDALONE_FUNCTIONS
         out_var_name = ""
         copy_on_write = True
         if selected_func not in PYTHON_FUNCTIONS and not is_standalone:

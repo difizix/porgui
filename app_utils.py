@@ -80,6 +80,16 @@ def get_module_func_args(module_name: str, argparse_func_name, main_func_name):
 
         p_desc = action.help or ""
 
+        # Map to specific UI dropdown types dynamically based on argument name and description
+        p_name_lower = p_name.lower()
+        p_desc_lower = p_desc.lower()
+        if "xmf" in p_name_lower or "xmf" in p_desc_lower:
+            p_type = "xmf_dropdown"
+        elif any(k in p_name_lower for k in ("image", "img", "filename")) or "image" in p_desc_lower:
+            p_type = "img_dropdown"
+        elif "case" in p_name_lower or "case" in p_desc_lower:
+            p_type = "case_dropdown"
+
         params_meta.append({
             "name": p_name,
             "type": p_type,
