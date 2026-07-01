@@ -215,6 +215,13 @@ if "filter_version" not in st.session_state:
 tabs = st.tabs(["💻 Workflow Editor", "🖼️ Image Processing", "🌐 Network Analysis", "📊 Saved Plots", "📄 Log Files"])
 
 # ----------------------------------------------------
+# TAB 2: INTERACTIVE VISUALIZER
+# ----------------------------------------------------
+with tabs[2]:
+    import app_func_net
+    app_func_net.render_pnm_tab()
+
+# ----------------------------------------------------
 # TAB 1: WORKFLOW EDITOR
 # ----------------------------------------------------
 with tabs[0]:
@@ -227,13 +234,6 @@ with tabs[0]:
 with tabs[1]:
     import app_func_img
     app_func_img.render_imgpro_tab()
-
-# ----------------------------------------------------
-# TAB 2: INTERACTIVE VISUALIZER
-# ----------------------------------------------------
-with tabs[2]:
-    import app_func_net
-    app_func_net.render_pnm_tab()
 
 # ----------------------------------------------------
 # TAB 3: SAVED PLOTS

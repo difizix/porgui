@@ -100,3 +100,100 @@ def snflow(
     nm.snflow(config)
     return f"Simulation completed. Output: {OutputName}_upscal.svg"
 
+
+# ---------------------------------------------------------------------------
+# Python functions — fully annotated, called directly with **kwargs.
+# Add new utility functions here; they will appear in the UI automatically.
+# ---------------------------------------------------------------------------
+def loadXmf(
+    filename: XmfDropdown,
+    new_var_name: str = "network",
+) -> object:
+    """Load an network (.xmf) from the runs directory into the workspace."""
+    import pnmkit as nm
+    return nm.Xdml(filename)
+
+
+def makeNetworkTubes(
+    filename: XmfDropdown,
+    var_name: str = "radius",
+    xRad: float = 0.5,
+    trsh: float = -1e32,
+    new_var_name: str = "network_tubes",
+) -> object:
+    """Load an xdmf pore network, linearize edges and generate 3D tube mesh.
+
+    Handles VTK_QUADRATIC_EDGE cells (type 21) in _pn.xmf files by converting
+    them to standard LINE cells before applying the vtkTubeFilter.
+    Mirrors the pipeline in pyvtk/vtkXdmfScreenshot.py using PyVista.
+    """
+    import pyvista as pv
+    import numpy as np
+
+    print(f"[makeNetworkTubes] Reading: {filename}")
+    mesh = pv.read(filename, force_ext='.xdmf')
+    print(f"  Loaded: {mesh.n_points} points, {mesh.n_cells} cells")
+    print(f"  Cell types: {np.unique(mesh.celltypes).tolist()}")
+
+    # Auto-detect radius scalar
+    avail = list(mesh.point_data.keys()) + list(mesh.cell_data.keys())
+    print(f"  Available arrays: {avail}")
+    if var_name not in avail:
+        if "radius" in avail:
+            var_name = "radius"
+        elif "radus" in avail:
+            var_name = "radus"
+        else:
+            raise ValueError(
+                f"Scalar '{var_name}' not found. Available: {avail}"
+            )
+    print(f"  Using scalar: '{var_name}'")
+    r = mesh.point_data.get(var_name)
+    if r is None:
+        r = mesh.cell_data.get(var_name)
+    if r is not None:
+        print(f"  {var_name} range: {r.min():.4g} – {r.max():.4g}")
+
+    # Threshold to remove zero/negative radii
+    thresh_val = trsh if trsh > -1e30 else 1e-9
+    print(f"  Thresholding {var_name} >= {thresh_val:.3g} ...")
+    mesh = mesh.threshold(value=thresh_val, scalars=var_name, preference="point")
+    print(f"  After threshold: {mesh.n_points} points, {mesh.n_cells} cells")
+    if mesh.n_cells == 0:
+        raise ValueError("All cells removed by threshold — check scalar values or lower trsh.")
+
+    # Linearize VTK_QUADRATIC_EDGE (type 21) → standard LINE (type 3)
+    # Each quadratic edge: [3, n0, n1, mid] — keep only n0, n1 endpoints
+    VTK_QUADRATIC_EDGE = 21
+    cell_types = np.unique(mesh.celltypes).tolist()
+    if VTK_QUADRATIC_EDGE in cell_types:
+        print(f"  Linearizing VTK_QUADRATIC_EDGE (type 21) cells ...")
+        n_cells = mesh.n_cells
+        raw     = mesh.cells  # flat: [3, n0, n1, mid, ...]
+        lines   = np.empty(n_cells * 3, dtype=np.intp)
+        for i in range(n_cells):
+            b = i * 4
+            lines[i*3], lines[i*3+1], lines[i*3+2] = 2, raw[b+1], raw[b+2]
+        poly = pv.PolyData()
+        poly.points = mesh.points.copy()
+        poly.lines  = lines
+        for name in mesh.point_data.keys():
+            poly.point_data[name] = mesh.point_data[name].copy()
+        print(f"  PolyData lines: {poly.n_points} points, {poly.n_cells} lines")
+    else:
+        print(f"  Extracting edges from cell types {cell_types} ...")
+        poly = mesh.extract_all_edges()
+        print(f"  Edges: {poly.n_points} points, {poly.n_cells} lines")
+
+    print(f"  Applying tube filter (radius=5e-5, xRad={xRad}, scalars={var_name}) ...")
+    tubes = poly.tube(
+        radius=5e-5,
+        scalars=var_name,
+        absolute=True,
+        radius_factor=xRad,
+        n_sides=10,
+    )
+    print(f"  Tubes: {tubes.n_points} points, {tubes.n_cells} cells")
+    if tubes.n_points == 0:
+        raise ValueError("Tube filter produced empty mesh. Try increasing xRad or check scalar units.")
+    return tubes

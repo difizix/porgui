@@ -2,12 +2,14 @@ import streamlit as st
 import os
 import numpy as np
 import traceback
-import PIL
 import sys
 import argparse
+import glob
+import pyvista as pv
+from stpyvista import stpyvista
 
-from app_utils import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args
-from user_common_funcs import loadImg, mextract, snflow
+from app_utils import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_xdmf_func_args, run_capturing_output
+from user_common_funcs import loadXmf, makeNetworkTubes, mextract, snflow
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,7 +18,6 @@ if workspace_root not in sys.path:
     sys.path.insert(0, workspace_root)
 
 # Wrap CLI Apps
-
 STANDALONE_FUNCTIONS = {
     "vtkXdmfScreenshot": ("pyvtk.vtkXdmfScreenshot", "make_parser", "main"),
     "vtkXdmfAnimate": ("pyvtk.vtkXdmfAnimate", "make_parser", "main"),
@@ -26,13 +27,14 @@ STANDALONE_FUNCTIONS = {
 
 PYTHON_FUNCTIONS = {
     "loadXmf": loadXmf,
+    "makeNetworkTubes": makeNetworkTubes,
     "snflow": snflow,
 }
 
 CURATED_METHODS = {
-    # there are no functions operating on Xdml/Xdms (.xmf) objects added yet, but we will!
+    "writeAll": get_xdmf_func_args("writeAll", "Write the network to a file."),
+    "readXmf": get_xdmf_func_args("readXmf", "Read the network from a file."),
 }
-
 
 for _sf_name, _sf_tuple in STANDALONE_FUNCTIONS.items():
     try:
@@ -50,129 +52,65 @@ for _pf_name, _pf_func in PYTHON_FUNCTIONS.items():
     CURATED_METHODS[_pf_name] = func_args_from_inspect(_pf_func)
 
 # ----------------------------------------------------
-# TAB 2: INTERACTIVE VISUALIZER
+# TAB 3: NETWORK ANALYSIS
 # ----------------------------------------------------
 def render_pnm_tab():
-    if "generated_code" not in st.session_state:
-        st.session_state.generated_code = None
+    if "net_generated_code" not in st.session_state:
+        st.session_state.net_generated_code = None
 
-    # Dropdown to choose which image variable from workspace to visualize
-    if st.session_state.processed_image is not None and "img" not in st.session_state.workspace_vars:
-        st.session_state.workspace_vars["img"] = st.session_state.processed_image
+    if "net_filenames" not in st.session_state:
+        st.session_state.net_filenames = {}
 
-    img = None
+    if "net_stdout" not in st.session_state:
+        st.session_state.net_stdout = ""
+    if "net_success" not in st.session_state:
+        st.session_state.net_success = ""
+    if "net_error" not in st.session_state:
+        st.session_state.net_error = ""
+
+    net_obj = None
     col_v_ctrl, col_v_canvas = st.columns([2, 3])
 
     with col_v_ctrl:
-
-        var_options = list(st.session_state.workspace_vars.keys())
+        # Filter workspace_vars to find potential networks
+        import pnmkit as nm
+        import pyvista as pv
+        net_types = (nm.Xdmf, nm.Xdml, pv.PolyData, pv.UnstructuredGrid)
+        var_options = [k for k, v in st.session_state.workspace_vars.items() if isinstance(v, net_types)]
         if var_options:
             c1, c2 = st.columns([2, 3])
             with c1:
-                st.markdown("<div style='padding-top: 6px;'><b>Active Image Variable:</b></div>", unsafe_allow_html=True)
+                st.markdown("<div style='padding-top: 6px;'><b>Active Network Variable:</b></div>", unsafe_allow_html=True)
             with c2:
-                selected_var = st.selectbox("Select Active Image Variable", var_options, index=0, key="active_var_selectbox", label_visibility="collapsed")
-            img = st.session_state.workspace_vars[selected_var]
+                selected_var = st.selectbox("Select Active Network Variable", var_options, index=0, key="net_active_var_selectbox", label_visibility="collapsed")
+            net_obj = st.session_state.workspace_vars[selected_var]
         else:
             selected_var = None
 
-
-        with st.expander("📤 Upload & Load Image to Cache"):
-            uploaded_file = st.file_uploader("Upload Image (.xmf)", type=["xmf"], key="uploader_widget")
+        with st.expander("📤 Upload & Load Network (.xmf)"):
+            uploaded_file = st.file_uploader("Upload Network (.xmf)", type=["xmf"], key="net_uploader_widget")
             if uploaded_file is not None:
-                ext = os.path.splitext(uploaded_file.name)[1].lower()
-                default_idx = 1 if ext in [".png", ".am", ".dat"] else 0
-                col_up_name, col_up_type = st.columns([1, 1])
-                with col_up_name:
-                    new_var_name = st.text_input("Variable Name", value="img_uploaded", key="up_var_name")
-                with col_up_type:
-                    up_img_type = st.selectbox("Type", ["VxlImgU16", "VxlImgU8", "VxlImgF32"], index=default_idx, key="up_img_type")
-
-                is_raw = uploaded_file.name.endswith(".raw")
-                raw_shape = None
-                if is_raw:
-                    shape_str = st.text_input("RAW Shape (Z, Y, X), e.g. (148, 1775, 467)", value="", key="raw_shape_str")
-                    if shape_str:
-                        try:
-                            raw_shape = eval(shape_str)
-                        except Exception:
-                            st.error("Invalid shape format.")
-
-                if st.button("Load Image", key="btn_load_uploaded"):
+                new_var_name = st.text_input("Variable Name", value="net_uploaded", key="net_up_var_name")
+                if st.button("Load Network", key="net_btn_load_uploaded"):
                     temp_path = uploaded_file.name
                     with open(temp_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
                     try:
-                        # Let's check the type and load using the appropriate VxlImg class
-                        if up_img_type == "VxlImgU16":
-                            loaded_obj = st.session_state.original_VxlImgU16(temp_path)
-                        elif up_img_type == "VxlImgU8":
-                            loaded_obj = st.session_state.original_VxlImgU8(temp_path)
-                        else:
-                            loaded_obj = st.session_state.original_VxlImgF32(temp_path)
-
-                        cache_key = f"{up_img_type}_{os.path.abspath(temp_path)}"
-                        st.session_state.image_cache[cache_key] = loaded_obj
+                        import pnmkit as nm
+                        loaded_obj = nm.Xdml(temp_path)
                         st.session_state.workspace_vars[new_var_name] = loaded_obj
-                        st.session_state.processed_image = loaded_obj
+                        st.session_state.net_filenames[new_var_name] = temp_path
                         st.success(f"Loaded {uploaded_file.name} as `{new_var_name}`!")
                         st.rerun()
                     except Exception as load_err:
-                        st.error(f"Error loading image: {load_err}")
+                        st.error(f"Error loading network: {load_err}")
 
-
-        if img is not None:
-            data = img.data
-            shape = data.shape
-            c1_ax, c2_ax = st.columns([2, 2])
-            with c1_ax:
-                st.markdown("<div style='padding-top: 6px;'><b>View Normal Axis:</b></div>", unsafe_allow_html=True)
-            with c2_ax:
-                axis = st.selectbox("View Normal Axis", ["Z (Axial)", "Y (Coronal)", "X (Sagittal)"], key="view_axis_sel", label_visibility="collapsed")
-            axis_idx = 2 if "Z" in axis else (1 if "Y" in axis else 0)
-            max_slice = shape[axis_idx] - 1
-            if max_slice <= 0:
-                st.caption("Slice Index: 0 (Dimension size is 1)")
-                slice_idx = 0
-            else:
-                c1_sl, c2_sl = st.columns([1, 3])
-                with c1_sl:
-                    st.markdown("<div style='padding-top: 6px;'><b>Select Slice Index:</b></div>", unsafe_allow_html=True)
-                with c2_sl:
-                    slice_idx = st.slider("Slice Index", 0, int(max_slice), int(max_slice // 2), key="slice_slider", label_visibility="collapsed")
-            
-            data_min = float(data.min())
-            data_max = float(data.max())
-            if data_min >= data_max:
-                st.caption(f"Contrast Range: {data_min} (Constant image value)")
-                min_contrast, max_contrast = data_min, data_max
-            else:
-                default_start = data_min
-                default_end = data_max
-                
-                c1_co, c2_co = st.columns([1, 3])
-                with c1_co:
-                    st.markdown("<div style='padding-top: 6px;'><b>Contrast Range:</b></div>", unsafe_allow_html=True)
-                with c2_co:
-                    val_range = st.slider(
-                        "Contrast Range",
-                        data_min, data_max,
-                        (default_start, default_end),
-                        key="contrast_slider",
-                        label_visibility="collapsed"
-                    )
-                min_contrast, max_contrast = val_range
-        else:
-            st.info("No image loaded yet. Run a workflow or upload an image to begin.")
-
-
-        # 🛠️ Interactive Function Executor Section
         st.markdown('<div class="card-title">🛠️ Interactive Function Executor</div>', unsafe_allow_html=True)
 
         # Get list of functions
         standalone_options = list(STANDALONE_FUNCTIONS.keys())
         available_standalones = [f for f in standalone_options if f in CURATED_METHODS]
-        if img is not None:
+        if net_obj is not None:
             func_options = sorted(list(CURATED_METHODS.keys()))
         else:
             func_options = sorted(list(PYTHON_FUNCTIONS.keys()) + available_standalones)
@@ -181,7 +119,7 @@ def render_pnm_tab():
         with c1_fn:
             st.markdown("<div style='padding-top: 6px;'><b>Function to Execute:</b></div>", unsafe_allow_html=True)
         with c2_fn:
-            selected_func = st.selectbox("Function to Execute:", func_options, key="exec_func_sel", label_visibility="collapsed")
+            selected_func = st.selectbox("Function to Execute:", func_options, key="net_exec_func_sel", label_visibility="collapsed")
 
         # Display description
         st.markdown(f"**Description**: *{CURATED_METHODS[selected_func]['desc']}*")
@@ -192,7 +130,6 @@ def render_pnm_tab():
         args = {}
         if params_meta:
             st.write("##### Function Arguments:")
-            # Render widgets in a grid (3 columns)
             cols = st.columns(3)
             for idx, p in enumerate(params_meta):
                 col = cols[idx % 3]
@@ -203,21 +140,21 @@ def render_pnm_tab():
 
                 with col:
                     if p_type is bool:
-                        args[p_name] = st.checkbox(f"{p_name}", value=p_default, help=p_desc, key=f"func_arg_{p_name}")
+                        args[p_name] = st.checkbox(f"{p_name}", value=p_default, help=p_desc, key=f"net_func_arg_{p_name}")
                     elif p_type is int:
                         try:
                             val = int(p_default)
                         except (ValueError, TypeError):
                             val = 0
-                        args[p_name] = st.number_input(f"{p_name} (int)", value=val, step=1, help=p_desc, key=f"func_arg_{p_name}")
+                        args[p_name] = st.number_input(f"{p_name} (int)", value=val, step=1, help=p_desc, key=f"net_func_arg_{p_name}")
                     elif p_type is float:
                         try:
                             val = float(p_default)
                         except (ValueError, TypeError):
                             val = 0.0
-                        args[p_name] = st.number_input(f"{p_name} (float)", value=val, step=0.1, help=p_desc, key=f"func_arg_{p_name}")
+                        args[p_name] = st.number_input(f"{p_name} (float)", value=val, step=0.1, help=p_desc, key=f"net_func_arg_{p_name}")
                     elif p_type in (list, tuple):
-                        val_str = st.text_input(f"{p_name} ({p_type.__name__})", value=str(p_default), help=p_desc, key=f"func_arg_{p_name}")
+                        val_str = st.text_input(f"{p_name} ({p_type.__name__})", value=str(p_default), help=p_desc, key=f"net_func_arg_{p_name}")
                         try:
                             args[p_name] = eval(val_str)
                         except Exception:
@@ -230,9 +167,8 @@ def render_pnm_tab():
                             args[p_name] = ""
                         else:
                             default_idx = var_options.index(p_default) if p_default in var_options else 0
-                            args[p_name] = st.selectbox(f"{p_name}", var_options, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
+                            args[p_name] = st.selectbox(f"{p_name}", var_options, index=default_idx, key=f"net_func_arg_{p_name}", help=p_desc)
                     elif p_type in ("img_dropdown", "file_dropdown"):
-                        import glob
                         extensions = ["*.tif", "*.tiff", "*.am", "*.png", "*.mhd", "*.dat", "*.raw"]
                         found_files = []
                         for ext in extensions:
@@ -244,9 +180,8 @@ def render_pnm_tab():
                             args[p_name] = ""
                         else:
                             default_idx = found_files.index(p_default) if p_default in found_files else 0
-                            args[p_name] = st.selectbox(f"{p_name}", found_files, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
+                            args[p_name] = st.selectbox(f"{p_name}", found_files, index=default_idx, key=f"net_func_arg_{p_name}", help=p_desc)
                     elif p_type == "xmf_dropdown":
-                        import glob
                         found_files = []
                         for ext in ["*.xmf", "*.xdmf"]:
                             found_files.extend(glob.glob(ext))
@@ -257,7 +192,7 @@ def render_pnm_tab():
                             args[p_name] = ""
                         else:
                             default_idx = found_files.index(p_default) if p_default in found_files else 0
-                            args[p_name] = st.selectbox(f"{p_name}", found_files, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
+                            args[p_name] = st.selectbox(f"{p_name}", found_files, index=default_idx, key=f"net_func_arg_{p_name}", help=p_desc)
                     elif p_type == "case_dropdown":
                         found_dirs = sorted([d for d in os.listdir(".") if os.path.isdir(d) and not d.startswith(".")])
                         if not found_dirs:
@@ -265,13 +200,13 @@ def render_pnm_tab():
                             args[p_name] = ""
                         else:
                             default_idx = found_dirs.index(p_default) if p_default in found_dirs else 0
-                            args[p_name] = st.selectbox(f"{p_name}", found_dirs, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
+                            args[p_name] = st.selectbox(f"{p_name}", found_dirs, index=default_idx, key=f"net_func_arg_{p_name}", help=p_desc)
                     elif p_type == "type_dropdown":
                         type_options = ["VxlImgU16", "VxlImgU8", "VxlImgF32"]
                         default_idx = type_options.index(p_default) if p_default in type_options else 0
-                        args[p_name] = st.selectbox(f"{p_name}", type_options, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
+                        args[p_name] = st.selectbox(f"{p_name}", type_options, index=default_idx, key=f"net_func_arg_{p_name}", help=p_desc)
                     else:
-                        args[p_name] = st.text_input(f"{p_name}", value=str(p_default), help=p_desc, key=f"func_arg_{p_name}")
+                        args[p_name] = st.text_input(f"{p_name}", value=str(p_default), help=p_desc, key=f"net_func_arg_{p_name}")
         else:
             st.info("This function does not take any arguments.")
 
@@ -283,52 +218,52 @@ def render_pnm_tab():
             st.write("##### Execution Options:")
             col_opt1, col_opt2 = st.columns([1, 1])
             with col_opt1:
-                out_var_name = st.text_input("Output Variable Name", value=f"{selected_var}_filtered" if selected_var else "img_filtered")
+                out_var_name = st.text_input("Output Variable Name", value=f"{selected_var}_modified" if selected_var else "net_modified", key="net_out_var_name")
             with col_opt2:
-                copy_on_write = st.checkbox("Copy first (protect original image)", value=True, help="If unchecked, the operation is run in-place modifying the selected variable.")
+                copy_on_write = st.checkbox("Copy first (protect original)", value=True, help="If unchecked, operation is in-place.", key="net_copy_on_write")
 
-        # Update last selected function tracker and reset generated code if function changed
-        if "last_selected_func" not in st.session_state:
-            st.session_state.last_selected_func = selected_func
-        elif st.session_state.last_selected_func != selected_func:
-            st.session_state.last_selected_func = selected_func
-            st.session_state.generated_code = None
+        # Reset generated code if function changed
+        if "net_last_selected_func" not in st.session_state:
+            st.session_state.net_last_selected_func = selected_func
+        elif st.session_state.net_last_selected_func != selected_func:
+            st.session_state.net_last_selected_func = selected_func
+            st.session_state.net_generated_code = None
 
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            btn_gen = st.button("📋 Generate Code", key="btn_gen_interactive_func", use_container_width=True)
+            btn_gen = st.button("📋 Generate Code", key="net_btn_gen_interactive_func", use_container_width=True)
         with col_btn2:
-            btn_run = st.button("▶️ Run Function", key="btn_run_interactive_func", use_container_width=True)
+            btn_run = st.button("▶️ Run Function", key="net_btn_run_interactive_func", use_container_width=True)
 
         if btn_gen:
             try:
-                st.session_state.generated_code = args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
+                st.session_state.net_generated_code = args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
             except Exception as gen_err:
                 st.error(f"Failed to generate code: {gen_err}")
 
         if btn_run:
+            st.session_state.net_stdout = ""
+            st.session_state.net_success = ""
+            st.session_state.net_error = ""
             try:
                 is_python_func = selected_func in PYTHON_FUNCTIONS
                 if is_python_func:
                     func_to_call = PYTHON_FUNCTIONS[selected_func]
-                    # Extract the output variable name from the args if present
                     var_name = args.pop("new_var_name", None) or out_var_name or selected_func
                     filename = args.get("filename", "")
                     if "filename" in args and not args["filename"]:
                         st.error("Please select a file to load.")
                         st.stop()
-                    result = func_to_call(**args)
 
-                    is_vxl = isinstance(result, (
-                        st.session_state.original_VxlImgU16,
-                        st.session_state.original_VxlImgU8,
-                        st.session_state.original_VxlImgF32,
-                    ))
-                    if is_vxl:
-                        cache_key = f"{type(result).__name__}_{os.path.abspath(filename)}"
-                        st.session_state.image_cache[cache_key] = result
+                    result, stdout = run_capturing_output(func_to_call, **args)
+                    st.session_state.net_stdout = stdout.strip()
+
+                    import pnmkit as nm
+                    import pyvista as pv
+                    if isinstance(result, (nm.Xdmf, nm.Xdml, pv.PolyData, pv.UnstructuredGrid)):
                         st.session_state.workspace_vars[var_name] = result
-                        st.session_state.processed_image = result
+                        if filename:
+                            st.session_state.net_filenames[var_name] = filename
 
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     command_line = f"{var_name} = {selected_func}({args_str})"
@@ -337,95 +272,166 @@ def render_pnm_tab():
                     else:
                         st.session_state.session_commands = command_line
 
-                    st.success(f"Executed `{selected_func}`, result stored as `{var_name}`.")
+                    st.session_state.net_success = f"Executed `{selected_func}`, result stored as `{var_name}`."
                     st.rerun()
                 elif is_standalone:
-                    _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
-                    result = _func(**args)
-                    
+                    def run_standalone():
+                        _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
+                        return _func(**args)
+                    result, stdout = run_capturing_output(run_standalone)
+                    st.session_state.net_stdout = stdout.strip()
+
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     command_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
-                        
                     if st.session_state.session_commands:
                         st.session_state.session_commands += f"\n\n{command_line}"
                     else:
                         st.session_state.session_commands = command_line
-                        
-                    st.success(f"Successfully executed standalone command `{selected_func}`!")
+                    st.session_state.net_success = f"Successfully executed standalone command `{selected_func}`!"
                     st.rerun()
                 else:
-                    # Prepare object to run on
                     if copy_on_write:
-                        run_obj = img.copy()
-                    else:
-                        run_obj = img
-
-                    # Execute
+                        st.error("Copy-on-write is not implemented for custom Xdmf objects. Please run in-place.")
+                        st.stop()
+                    run_obj = net_obj
                     func_to_run = getattr(run_obj, selected_func)
-                    result = func_to_run(**args)
 
-                    # If result is VxlImg, use it, otherwise use run_obj
-                    if isinstance(result, (st.session_state.original_VxlImgU16,
-                                        st.session_state.original_VxlImgU8,
-                                        st.session_state.original_VxlImgF32)):
-                        output_img = result
-                    else:
-                        output_img = run_obj
+                    result, stdout = run_capturing_output(func_to_run, **args)
+                    st.session_state.net_stdout = stdout.strip()
 
-                    # Save to workspace vars
-                    st.session_state.workspace_vars[out_var_name] = output_img
-                    st.session_state.processed_image = output_img
-
-                    # Generate Python command line
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                    if copy_on_write:
-                        command_line = f"{out_var_name} = {selected_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
-                    else:
-                        command_line = f"{out_var_name} = {selected_var}\n{out_var_name}.{selected_func}({args_str})"
-
-                    # Append to history
+                    command_line = f"{selected_var}.{selected_func}({args_str})"
                     if st.session_state.session_commands:
                         st.session_state.session_commands += f"\n\n{command_line}"
                     else:
                         st.session_state.session_commands = command_line
 
-                    st.success(f"Successfully executed `{selected_func}`! Output stored as `{out_var_name}`.")
+                    st.session_state.net_success = f"Successfully executed `{selected_func}` in-place on `{selected_var}`."
                     st.rerun()
             except Exception as run_err:
-                st.error(f"Execution failed: {run_err}")
-                st.code(traceback.format_exc())
+                import traceback
+                st.session_state.net_error = f"{run_err}\n\n{traceback.format_exc()}"
+                st.rerun()
 
-        # Display generated code block if available
-        if st.session_state.generated_code:
+        if st.session_state.net_generated_code:
             st.markdown("---")
             st.markdown("##### 📋 Generated Python Code:")
-            st.code(st.session_state.generated_code, language="python")
+            st.code(st.session_state.net_generated_code, language="python")
+
+        if st.session_state.net_stdout:
+            st.markdown("---")
+            st.markdown("##### 💬 Execution Output:")
+            st.code(st.session_state.net_stdout, language="text")
+
+        if st.session_state.net_success:
+            st.success(st.session_state.net_success)
+
+        if st.session_state.net_error:
+            st.error("Execution failed:")
+            st.code(st.session_state.net_error, language="text")
 
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")
 
     with col_v_canvas:
-        if img is not None:
-            try:
-                data = img.data
-                shape = data.shape
-                if axis_idx == 0:
-                    slice_2d = data[slice_idx, :, :]
-                elif axis_idx == 1:
-                    slice_2d = data[:, slice_idx, :]
-                else:
-                    slice_2d = data[:, :, slice_idx]
-                # Scale values
-                if max_contrast > min_contrast:
-                    norm_slice = np.clip((slice_2d - min_contrast) / (max_contrast - min_contrast) * 255.0, 0, 255).astype(np.uint8)
-                else:
-                    norm_slice = np.zeros_like(slice_2d, dtype=np.uint8)
-                pil_image = PIL.Image.fromarray(norm_slice)
-                st.image(
-                    pil_image,
-                    caption=f"`{axis.split()[0]}` @ `{slice_idx}` / `{max_slice}` │ color: `{int(min_contrast)}-{int(max_contrast)}` `{data.dtype}` │ span: `{shape}` × `{img.voxelSize}` + `{img.origin}`",
-                    width="stretch"
+        mesh = None
+        xmf_path = None
+        if selected_var:
+            val = st.session_state.workspace_vars[selected_var]
+            if isinstance(val, (pv.PolyData, pv.UnstructuredGrid)):
+                # Already a PyVista mesh (e.g. result of makeNetworkTubes)
+                mesh = val
+                xmf_path = st.session_state.net_filenames.get(selected_var, "Mesh Object")
+            else:
+                # Xdml/Xdmf object — not directly renderable; guide user
+                st.info(
+                    f"**`{selected_var}`** is a network object (pnmkit). "
+                    "Run **makeNetworkTubes** on it to generate a 3D tube mesh for visualization."
                 )
-            except Exception as slice_err:
-                st.error(f"Error rendering image slice from memory: {slice_err}")
 
+        if mesh is not None and mesh.n_points > 0:
+            display_name = os.path.basename(xmf_path) if xmf_path and xmf_path != "Mesh Object" else selected_var or "Mesh"
+            st.markdown(f"#### 🌐 3D Network Visualization (`{display_name}`)")
+            try:
+                # Extract scalar fields
+                available_scalars = list(mesh.point_data.keys()) + list(mesh.cell_data.keys())
+                selected_scalar = None
+                if available_scalars:
+                    default_idx = 0
+                    if 'radius' in available_scalars:
+                        default_idx = available_scalars.index('radius')
+                    elif 'radus' in available_scalars:
+                        default_idx = available_scalars.index('radus')
+
+                    selected_scalar = st.selectbox(
+                        "Color by Attribute:",
+                        available_scalars,
+                        index=default_idx,
+                        key="net_color_scalar_selectbox"
+                    )
+
+                # Initialize Plotter
+                plotter = pv.Plotter(window_size=[500, 500])
+                plotter.background_color = "#0f172a"
+
+                # Detect if the mesh is just 1D lines (needs line rendering)
+                is_line_mesh = False
+                import numpy as np
+                if isinstance(mesh, pv.UnstructuredGrid):
+                    cts = np.unique(mesh.celltypes)
+                    # 3=LINE, 4=POLY_LINE, 21=QUADRATIC_EDGE
+                    if len(cts) > 0 and all(ct in [3, 4, 21] for ct in cts):
+                        is_line_mesh = True
+                elif isinstance(mesh, pv.PolyData):
+                    if mesh.n_lines > 0 and mesh.n_faces == 0:
+                        is_line_mesh = True
+
+                plot_args = {
+                    "scalars": selected_scalar,
+                    "cmap": "viridis",
+                    "show_scalar_bar": True,
+                }
+                if is_line_mesh:
+                    plot_args["render_lines_as_tubes"] = True
+                    plot_args["line_width"] = 2.5
+                else:
+                    plot_args["smooth_shading"] = True
+
+                plotter.add_mesh(mesh, **plot_args)
+
+                plotter.add_axes()
+                plotter.reset_camera()
+                plotter.view_isometric()
+
+                stpyvista(plotter, key=f"net_pv_plot_{selected_var or 'default'}")
+
+                # Diagnostics expander
+                diag_rows = [
+                    ("Points", f"{mesh.n_points:,}"),
+                    ("Cells",  f"{mesh.n_cells:,}"),
+                    ("X bounds", f"{mesh.bounds[0]:.2f} – {mesh.bounds[1]:.2f}"),
+                    ("Y bounds", f"{mesh.bounds[2]:.2f} – {mesh.bounds[3]:.2f}"),
+                    ("Z bounds", f"{mesh.bounds[4]:.2f} – {mesh.bounds[5]:.2f}"),
+                ]
+                if selected_scalar:
+                    arr = mesh.point_data.get(selected_scalar)
+                    if arr is None:
+                        arr = mesh.cell_data.get(selected_scalar)
+                    if arr is not None:
+                        diag_rows += [
+                            (f"{selected_scalar} min", f"{arr.min():.4g}"),
+                            (f"{selected_scalar} max", f"{arr.max():.4g}"),
+                        ]
+                with st.expander("🔍 Mesh Diagnostics", expanded=True):
+                    for label, val in diag_rows:
+                        c1, c2 = st.columns([2, 3])
+                        c1.markdown(f"**{label}**")
+                        c2.markdown(val)
+            except Exception as render_err:
+                import traceback
+                st.error(f"Error rendering 3D network: {render_err}")
+                st.code(traceback.format_exc())
+        elif mesh is not None and mesh.n_points == 0:
+            st.warning("Generated mesh has zero points — the tube filter may need different parameters (e.g. adjust `xRad` or check the scalar array name).")
+        elif not selected_var:
+            st.info("No network variable selected. Load a network file with **loadXmf**, then run **makeNetworkTubes** to visualize it.")

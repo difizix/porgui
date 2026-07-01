@@ -5,6 +5,8 @@ import re
 import shlex
 import sys
 import time
+import io
+import contextlib
 from pathlib import Path
 import streamlit as st
 
@@ -434,3 +436,30 @@ def get_vxlImg_func_args(func_name: str, extra_help=None):
     if extra_help:
         ret_dict["desc"] += f"\n\n{extra_help}"
     return ret_dict
+
+def get_xdmf_func_args(func_name: str, extra_help=None):
+    """Parse args for a Xdmf method from its pybind11 docstring.
+    Returns a dict {"params": [...], "desc": "..."} compatible with CURATED_METHODS.
+    Falls back to empty params if parsing fails.
+    """
+    import pnmkit as nm
+    func = getattr(nm.Xdmf, func_name, None)
+    if not func:
+        return {"params": [], "desc": f"Function {func_name} not found.\n\n{extra_help}"}
+
+    ret_dict = func_args_from_pybind_doc(func.__doc__ or "")
+    if extra_help:
+        ret_dict["desc"] += f"\n\n{extra_help}"
+    return ret_dict
+
+
+def run_capturing_output(func, *args, **kwargs):
+    """Runs a function and captures its combined stdout and stderr.
+
+    Returns:
+        tuple: (result, output_str)
+    """
+    stdout_buf = io.StringIO()
+    with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stdout_buf):
+        result = func(*args, **kwargs)
+    return result, stdout_buf.getvalue()

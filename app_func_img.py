@@ -63,8 +63,12 @@ def render_imgpro_tab():
     if "generated_code" not in st.session_state:
         st.session_state.generated_code = None
 
-    # Dropdown to choose which image variable from workspace to visualize
-    if st.session_state.processed_image is not None and "img" not in st.session_state.workspace_vars:
+    vxl_types = (
+        st.session_state.original_VxlImgU16,
+        st.session_state.original_VxlImgU8,
+        st.session_state.original_VxlImgF32
+    )
+    if st.session_state.processed_image is not None and isinstance(st.session_state.processed_image, vxl_types) and "img" not in st.session_state.workspace_vars:
         st.session_state.workspace_vars["img"] = st.session_state.processed_image
 
     img = None
@@ -72,7 +76,7 @@ def render_imgpro_tab():
 
     with col_v_ctrl:
 
-        var_options = list(st.session_state.workspace_vars.keys())
+        var_options = [k for k, v in st.session_state.workspace_vars.items() if isinstance(v, vxl_types)]
         if var_options:
             c1, c2 = st.columns([2, 3])
             with c1:
