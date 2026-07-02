@@ -5,7 +5,8 @@ import traceback
 import PIL
 import sys
 
-from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args
+from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args, run_capturing_output, FormParam
+from app_common import render_parseargs
 from user_common_funcs import loadImg, mextract, snflow
 
 # Ensure workspace root is in sys.path
@@ -61,6 +62,12 @@ for _pf_name, _pf_func in PYTHON_FUNCTIONS.items():
 def render_imgpro_tab():
     if "generated_code" not in st.session_state:
         st.session_state.generated_code = None
+    if "img_stdout" not in st.session_state:
+        st.session_state.img_stdout = ""
+    if "img_success" not in st.session_state:
+        st.session_state.img_success = ""
+    if "img_error" not in st.session_state:
+        st.session_state.img_error = ""
 
     vxl_types = (
         st.session_state.original_VxlImgU16,
@@ -200,88 +207,19 @@ def render_imgpro_tab():
         params_meta = CURATED_METHODS[selected_func]["params"]
 
         args = {}
-        if params_meta: # TODO update and merge with render_parseargs
+        if params_meta:
             st.write("##### Function Arguments:")
-            # Render widgets in a grid (3 columns)
-            cols = st.columns(3)
-            for idx, p in enumerate(params_meta):
-                col = cols[idx % 3]
-                p_name = p["name"]
-                p_type = p["type"]
-                p_default = p["default"]
-                p_desc = p["desc"]
-
-                with col:
-                    if p_type is bool:
-                        args[p_name] = st.checkbox(f"{p_name}", value=p_default, help=p_desc, key=f"func_arg_{p_name}")
-                    elif p_type is int:
-                        try:
-                            val = int(p_default)
-                        except (ValueError, TypeError):
-                            val = 0
-                        args[p_name] = st.number_input(f"{p_name} (int)", value=val, step=1, help=p_desc, key=f"func_arg_{p_name}")
-                    elif p_type is float:
-                        try:
-                            val = float(p_default)
-                        except (ValueError, TypeError):
-                            val = 0.0
-                        args[p_name] = st.number_input(f"{p_name} (float)", value=val, step=0.1, help=p_desc, key=f"func_arg_{p_name}")
-                    elif p_type in (list, tuple):
-                        val_str = st.text_input(f"{p_name} ({p_type.__name__})", value=str(p_default), help=p_desc, key=f"func_arg_{p_name}")
-                        try:
-                            args[p_name] = eval(val_str)
-                        except Exception:
-                            st.error(f"Invalid format for {p_name}")
-                            args[p_name] = p_default
-                    elif p_type == "var_dropdown":
-                        var_options = list(st.session_state.workspace_vars.keys())
-                        if not var_options:
-                            st.warning("No variables found in workspace.")
-                            args[p_name] = ""
-                        else:
-                            default_idx = var_options.index(p_default) if p_default in var_options else 0
-                            args[p_name] = st.selectbox(f"{p_name}", var_options, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
-                    elif p_type in ("img_dropdown", "file_dropdown"):
-                        import glob
-                        extensions = ["*.tif", "*.tiff", "*.am", "*.png", "*.mhd", "*.dat", "*.raw"]
-                        found_files = []
-                        for ext in extensions:
-                            found_files.extend(glob.glob(ext))
-                            found_files.extend(glob.glob(f"*/{ext}"))
-                        found_files = sorted(list(set(found_files)))
-                        if not found_files:
-                            st.warning("No compatible image files found in runs/ directory.")
-                            args[p_name] = ""
-                        else:
-                            default_idx = found_files.index(p_default) if p_default in found_files else 0
-                            args[p_name] = st.selectbox(f"{p_name}", found_files, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
-                    elif p_type == "xmf_dropdown":
-                        import glob
-                        found_files = []
-                        for ext in ["*.xmf", "*.xdmf"]:
-                            found_files.extend(glob.glob(ext))
-                            found_files.extend(glob.glob(f"*/{ext}"))
-                        found_files = sorted(list(set(found_files)))
-                        if not found_files:
-                            st.warning("No .xmf files found in runs/ directory.")
-                            args[p_name] = ""
-                        else:
-                            default_idx = found_files.index(p_default) if p_default in found_files else 0
-                            args[p_name] = st.selectbox(f"{p_name}", found_files, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
-                    elif p_type == "case_dropdown":
-                        found_dirs = sorted([d for d in os.listdir(".") if os.path.isdir(d) and not d.startswith(".")])
-                        if not found_dirs:
-                            st.warning("No case directories found in runs/ directory.")
-                            args[p_name] = ""
-                        else:
-                            default_idx = found_dirs.index(p_default) if p_default in found_dirs else 0
-                            args[p_name] = st.selectbox(f"{p_name}", found_dirs, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
-                    elif p_type == "type_dropdown":
-                        type_options = ["VxlImgU16", "VxlImgU8", "VxlImgF32"]
-                        default_idx = type_options.index(p_default) if p_default in type_options else 0
-                        args[p_name] = st.selectbox(f"{p_name}", type_options, index=default_idx, key=f"func_arg_{p_name}", help=p_desc)
-                    else:
-                        args[p_name] = st.text_input(f"{p_name}", value=str(p_default), help=p_desc, key=f"func_arg_{p_name}")
+            form_params = []
+            for p in params_meta:
+                form_params.append(FormParam(
+                    name=p["name"],
+                    default=p["default"],
+                    has_default=True,
+                    type_val=p["type"],
+                    help_text=p["desc"],
+                    is_iterable=p["type"] in (list, tuple)
+                ))
+            args = render_parseargs(form_params, key_prefix="func_arg")
         else:
             st.info("This function does not take any arguments.")
 
@@ -317,6 +255,9 @@ def render_imgpro_tab():
                 st.error(f"Failed to generate code: {gen_err}")
 
         if btn_run:
+            st.session_state.img_stdout = ""
+            st.session_state.img_success = ""
+            st.session_state.img_error = ""
             try:
                 is_python_func = selected_func in PYTHON_FUNCTIONS
                 if is_python_func:
@@ -327,7 +268,8 @@ def render_imgpro_tab():
                     if "filename" in args and not args["filename"]:
                         st.error("Please select a file to load.")
                         st.stop()
-                    result = func_to_call(**args) # TODO wrap inside run_capturing_output(func_to_call)
+                    result, stdout = run_capturing_output(func_to_call, **args)
+                    st.session_state.img_stdout = stdout.strip()
 
                     is_vxl = isinstance(result, (
                         st.session_state.original_VxlImgU16,
@@ -347,11 +289,14 @@ def render_imgpro_tab():
                     else:
                         st.session_state.session_commands = command_line
 
-                    st.success(f"Executed `{selected_func}`, result stored as `{var_name}`.")
+                    st.session_state.img_success = f"Executed `{selected_func}`, result stored as `{var_name}`."
                     st.rerun()
                 elif is_standalone:
-                    _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
-                    result = _func(**args) # TODO wrap inside run_capturing_output(_func, **args)
+                    def run_standalone():
+                        _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
+                        return _func(**args)
+                    result, stdout = run_capturing_output(run_standalone)
+                    st.session_state.img_stdout = stdout.strip()
                     
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     command_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
@@ -361,7 +306,7 @@ def render_imgpro_tab():
                     else:
                         st.session_state.session_commands = command_line
                         
-                    st.success(f"Successfully executed standalone command `{selected_func}`!")
+                    st.session_state.img_success = f"Successfully executed standalone command `{selected_func}`!"
                     st.rerun()
                 else:
                     # Prepare object to run on
@@ -372,7 +317,8 @@ def render_imgpro_tab():
 
                     # Execute
                     func_to_run = getattr(run_obj, selected_func)
-                    result = func_to_run(**args) # TODO wrap inside run_capturing_output(func_to_run, **args)
+                    result, stdout = run_capturing_output(func_to_run, **args)
+                    st.session_state.img_stdout = stdout.strip()
 
                     # If result is VxlImg, use it, otherwise use run_obj
                     if isinstance(result, (st.session_state.original_VxlImgU16,
@@ -399,17 +345,29 @@ def render_imgpro_tab():
                     else:
                         st.session_state.session_commands = command_line
 
-                    st.success(f"Successfully executed `{selected_func}`! Output stored as `{out_var_name}`.")
+                    st.session_state.img_success = f"Successfully executed `{selected_func}`! Output stored as `{out_var_name}`."
                     st.rerun()
             except Exception as run_err:
-                st.error(f"Execution failed: {run_err}")
-                st.code(traceback.format_exc())
+                st.session_state.img_error = f"{run_err}\n\n{traceback.format_exc()}"
+                st.rerun()
 
         # Display generated code block if available
         if st.session_state.generated_code:
             st.markdown("---")
             st.markdown("##### 📋 Generated Python Code:")
             st.code(st.session_state.generated_code, language="python")
+
+        if st.session_state.img_stdout:
+            st.markdown("---")
+            st.markdown("##### 💬 Execution Output:")
+            st.code(st.session_state.img_stdout, language="text")
+
+        if st.session_state.img_success:
+            st.success(st.session_state.img_success)
+
+        if st.session_state.img_error:
+            st.error("Execution failed:")
+            st.code(st.session_state.img_error, language="text")
 
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")

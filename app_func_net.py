@@ -1,10 +1,10 @@
 import streamlit as st
 import os
 import sys
-import glob
 from stpyvista import stpyvista
 
-from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_xdmf_func_args, run_capturing_output
+from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_xdmf_func_args, run_capturing_output, FormParam
+from app_common import render_parseargs
 from user_common_funcs import loadXmf, makeNetworkTubes, mextract, snflow
 
 # Ensure workspace root is in sys.path
@@ -125,84 +125,18 @@ def render_pnm_tab():
 
         args = {}
         if params_meta:
-            st.write("##### Function Arguments:") # TODO update and merge with render_parseargs
-            cols = st.columns(3)
-            for idx, p in enumerate(params_meta):
-                col = cols[idx % 3]
-                p_name = p["name"]
-                p_type = p["type"]
-                p_default = p["default"]
-                p_desc = p["desc"]
-
-                with col:
-                    if p_type is bool:
-                        args[p_name] = st.checkbox(f"{p_name}", value=p_default, help=p_desc, key=f"net_func_arg_{p_name}")
-                    elif p_type is int:
-                        try:
-                            val = int(p_default)
-                        except (ValueError, TypeError):
-                            val = 0
-                        args[p_name] = st.number_input(f"{p_name} (int)", value=val, step=1, help=p_desc, key=f"net_func_arg_{p_name}")
-                    elif p_type is float:
-                        try:
-                            val = float(p_default)
-                        except (ValueError, TypeError):
-                            val = 0.0
-                        args[p_name] = st.number_input(f"{p_name} (float)", value=val, step=0.1, help=p_desc, key=f"net_func_arg_{p_name}")
-                    elif p_type in (list, tuple):
-                        val_str = st.text_input(f"{p_name} ({p_type.__name__})", value=str(p_default), help=p_desc, key=f"net_func_arg_{p_name}")
-                        try:
-                            args[p_name] = eval(val_str)
-                        except Exception:
-                            st.error(f"Invalid format for {p_name}")
-                            args[p_name] = p_default
-                    elif p_type == "var_dropdown":
-                        var_options = list(st.session_state.workspace_vars.keys())
-                        if not var_options:
-                            st.warning("No variables found in workspace.")
-                            args[p_name] = ""
-                        else:
-                            default_idx = var_options.index(p_default) if p_default in var_options else 0
-                            args[p_name] = st.selectbox(f"{p_name}", var_options, index=default_idx, key=f"net_func_arg_{p_name}", help=p_desc)
-                    elif p_type in ("img_dropdown", "file_dropdown"):
-                        extensions = ["*.tif", "*.tiff", "*.am", "*.png", "*.mhd", "*.dat", "*.raw"]
-                        found_files = []
-                        for ext in extensions:
-                            found_files.extend(glob.glob(ext))
-                            found_files.extend(glob.glob(f"*/{ext}"))
-                        found_files = sorted(list(set(found_files)))
-                        if not found_files:
-                            st.warning("No compatible image files found in runs/ directory.")
-                            args[p_name] = ""
-                        else:
-                            default_idx = found_files.index(p_default) if p_default in found_files else 0
-                            args[p_name] = st.selectbox(f"{p_name}", found_files, index=default_idx, key=f"net_func_arg_{p_name}", help=p_desc)
-                    elif p_type == "xmf_dropdown":
-                        found_files = []
-                        for ext in ["*.xmf", "*.xdmf"]:
-                            found_files.extend(glob.glob(ext))
-                            found_files.extend(glob.glob(f"*/{ext}"))
-                        found_files = sorted(list(set(found_files)))
-                        if not found_files:
-                            st.warning("No .xmf files found in runs/ directory.")
-                            args[p_name] = ""
-                        else:
-                            default_idx = found_files.index(p_default) if p_default in found_files else 0
-                            args[p_name] = st.selectbox(f"{p_name}", found_files, index=default_idx, key=f"net_func_arg_{p_name}", help=p_desc)
-                    elif p_type == "case_dropdown":
-                        found_dirs = sorted([d for d in os.listdir(".") if os.path.isdir(d) and not d.startswith(".")])
-                        if not found_dirs:
-                            st.warning("No case directories found in runs/ directory.")
-                            args[p_name] = ""
-                        else:
-                            default_idx = found_dirs.index(p_default) if p_default in found_dirs else 0
-                            args[p_name] = st.selectbox(f"{p_name}", found_dirs, index=default_idx, key=f"net_func_arg_{p_name}", help=p_desc)
-                    elif p_type == "type_dropdown":
-                        type_options = ["VxlImgU16", "VxlImgU8", "VxlImgF32"]
-                        default_idx = type_options.index(p_default) if p_default in type_options else 0
-                        args[p_name] = st.selectbox(f"{p_name}", type_options, index=default_idx, key=f"net_func_arg_{p_name}", help=p_desc)
-                    else:
-                        args[p_name] = st.text_input(f"{p_name}", value=str(p_default), help=p_desc, key=f"net_func_arg_{p_name}")
+            st.write("##### Function Arguments:")
+            form_params = []
+            for p in params_meta:
+                form_params.append(FormParam(
+                    name=p["name"],
+                    default=p["default"],
+                    has_default=True,
+                    type_val=p["type"],
+                    help_text=p["desc"],
+                    is_iterable=p["type"] in (list, tuple)
+                ))
+            args = render_parseargs(form_params, key_prefix="net_func_arg")
         else:
             st.info("This function does not take any arguments.")
 
