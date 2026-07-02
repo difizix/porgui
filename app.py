@@ -11,7 +11,7 @@ if root_dir not in sys.path:
 os.makedirs(os.path.join(root_dir, "runs"), exist_ok=True)
 os.chdir(os.path.join(root_dir, "runs"))
 
-from app_utils import get_output_files
+from utils_app import get_output_files
 
 # Set page configuration with a premium wide layout
 st.set_page_config(

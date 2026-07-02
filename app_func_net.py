@@ -1,14 +1,10 @@
 import streamlit as st
 import os
-import numpy as np
-import traceback
 import sys
-import argparse
 import glob
-import pyvista as pv
 from stpyvista import stpyvista
 
-from app_utils import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_xdmf_func_args, run_capturing_output
+from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_xdmf_func_args, run_capturing_output
 from user_common_funcs import loadXmf, makeNetworkTubes, mextract, snflow
 
 # Ensure workspace root is in sys.path
@@ -129,7 +125,7 @@ def render_pnm_tab():
 
         args = {}
         if params_meta:
-            st.write("##### Function Arguments:")
+            st.write("##### Function Arguments:") # TODO update and merge with render_parseargs
             cols = st.columns(3)
             for idx, p in enumerate(params_meta):
                 col = cols[idx % 3]
@@ -370,6 +366,9 @@ def render_pnm_tab():
                         key="net_color_scalar_selectbox"
                     )
 
+
+                # --------------------------
+                # to be implemented as a general function pyvistaplot
                 # Initialize Plotter
                 plotter = pv.Plotter(window_size=[500, 500])
                 plotter.background_color = "#0f172a"
@@ -402,6 +401,8 @@ def render_pnm_tab():
                 plotter.add_axes()
                 plotter.reset_camera()
                 plotter.view_isometric()
+
+                # end of func pyvistaplot (to be implemented as a general function)
 
                 stpyvista(plotter, key=f"net_pv_plot_{selected_var or 'default'}")
 

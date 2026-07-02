@@ -4,9 +4,8 @@ import numpy as np
 import traceback
 import PIL
 import sys
-import argparse
 
-from app_utils import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args
+from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args
 from user_common_funcs import loadImg, mextract, snflow
 
 # Ensure workspace root is in sys.path
@@ -201,7 +200,7 @@ def render_imgpro_tab():
         params_meta = CURATED_METHODS[selected_func]["params"]
 
         args = {}
-        if params_meta:
+        if params_meta: # TODO update and merge with render_parseargs
             st.write("##### Function Arguments:")
             # Render widgets in a grid (3 columns)
             cols = st.columns(3)
@@ -328,7 +327,7 @@ def render_imgpro_tab():
                     if "filename" in args and not args["filename"]:
                         st.error("Please select a file to load.")
                         st.stop()
-                    result = func_to_call(**args)
+                    result = func_to_call(**args) # TODO wrap inside run_capturing_output(func_to_call)
 
                     is_vxl = isinstance(result, (
                         st.session_state.original_VxlImgU16,
@@ -352,7 +351,7 @@ def render_imgpro_tab():
                     st.rerun()
                 elif is_standalone:
                     _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
-                    result = _func(**args)
+                    result = _func(**args) # TODO wrap inside run_capturing_output(_func, **args)
                     
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     command_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
@@ -373,7 +372,7 @@ def render_imgpro_tab():
 
                     # Execute
                     func_to_run = getattr(run_obj, selected_func)
-                    result = func_to_run(**args)
+                    result = func_to_run(**args) # TODO wrap inside run_capturing_output(func_to_run, **args)
 
                     # If result is VxlImg, use it, otherwise use run_obj
                     if isinstance(result, (st.session_state.original_VxlImgU16,

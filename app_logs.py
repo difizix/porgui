@@ -2,7 +2,7 @@ import contextlib
 import time
 
 import streamlit as st
-from app_utils import dict2args, filter_by_search_query, get_output_files, parser2uiparams, render_parseargs, top_dir
+from utils_app import dict2args, filter_by_search_query, get_output_files, parser2uiparams, top_dir
 
 
 def refresh_outputs():

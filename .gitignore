@@ -3,3 +3,6 @@ runs/*.log
 pnmkit/
 runs/
 pyvtk/
+
+# user notes
+TODO.md

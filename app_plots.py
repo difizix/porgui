@@ -1,7 +1,7 @@
 import time
 
 import streamlit as st
-from app_utils import filter_by_search_query, get_output_files, top_dir
+from utils_app import filter_by_search_query, get_output_files, top_dir
 
 
 def refresh_outputs():

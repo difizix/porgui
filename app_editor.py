@@ -6,7 +6,7 @@ import shlex
 import io
 import traceback
 import glob
-from app_utils import get_output_files
+from utils_app import get_output_files
 
 # ----------------------------------------------------
 # TAB 1: WORKFLOW STUDIO
