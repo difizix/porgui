@@ -101,6 +101,19 @@ def render_parseargs(params, key_prefix="", num_cols=3):
                 default_idx = type_options.index(default) if default in type_options else 0
                 val = st.selectbox(p_name, type_options, index=default_idx, key=widget_key, help=help_text)
                 args_dict[p_name] = val
+            elif type_val is dict:
+                default_str = str(default) if default is not None else "{}"
+                val = st.text_input(p_name, value=default_str, key=widget_key, help=help_text)
+                try:
+                    parsed_val = eval(val) if val.strip() else {}
+                    if isinstance(parsed_val, dict):
+                        args_dict[p_name] = parsed_val
+                    else:
+                        st.error(f"{p_name} must be a dictionary.")
+                        args_dict[p_name] = {}
+                except Exception:
+                    st.error(f"Invalid dictionary format for {p_name}.")
+                    args_dict[p_name] = {}
             else:
                 default_str = ""
                 if has_default and default is not None and default is not inspect.Parameter.empty:

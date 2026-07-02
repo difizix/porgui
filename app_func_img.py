@@ -269,7 +269,7 @@ def render_imgpro_tab():
                         st.error("Please select a file to load.")
                         st.stop()
                     result, stdout = run_capturing_output(func_to_call, **args)
-                    st.session_state.img_stdout = stdout.strip()
+                    st.session_state.img_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
 
                     is_vxl = isinstance(result, (
                         st.session_state.original_VxlImgU16,
@@ -296,7 +296,7 @@ def render_imgpro_tab():
                         _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
                         return _func(**args)
                     result, stdout = run_capturing_output(run_standalone)
-                    st.session_state.img_stdout = stdout.strip()
+                    st.session_state.img_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
                     
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     command_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
@@ -318,7 +318,7 @@ def render_imgpro_tab():
                     # Execute
                     func_to_run = getattr(run_obj, selected_func)
                     result, stdout = run_capturing_output(func_to_run, **args)
-                    st.session_state.img_stdout = stdout.strip()
+                    st.session_state.img_stdout = stdout.strip() # TODO addargs_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
 
                     # If result is VxlImg, use it, otherwise use run_obj
                     if isinstance(result, (st.session_state.original_VxlImgU16,

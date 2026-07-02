@@ -5,7 +5,7 @@ from stpyvista import stpyvista
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_xdmf_func_args, run_capturing_output, FormParam
 from app_common import render_parseargs
-from user_common_funcs import loadXmf, makeNetworkTubes, mextract, snflow
+from user_common_funcs import loadXmf, makeNetworkTubes, mextract, snflow, renderPNMXmf
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +24,7 @@ STANDALONE_FUNCTIONS = {
 PYTHON_FUNCTIONS = {
     "loadXmf": loadXmf,
     "makeNetworkTubes": makeNetworkTubes,
+    "renderPNMXmf": renderPNMXmf,
     "snflow": snflow,
 }
 
@@ -111,11 +112,14 @@ def render_pnm_tab():
         else:
             func_options = sorted(list(PYTHON_FUNCTIONS.keys()) + available_standalones)
 
+        default_func = "renderPNMXmf"
+        default_idx = func_options.index(default_func) if default_func in func_options else 0
+
         c1_fn, c2_fn = st.columns([2, 3])
         with c1_fn:
             st.markdown("<div style='padding-top: 6px;'><b>Function to Execute:</b></div>", unsafe_allow_html=True)
         with c2_fn:
-            selected_func = st.selectbox("Function to Execute:", func_options, key="net_exec_func_sel", label_visibility="collapsed")
+            selected_func = st.selectbox("Function to Execute:", func_options, index=default_idx, key="net_exec_func_sel", label_visibility="collapsed")
 
         # Display description
         st.markdown(f"**Description**: *{CURATED_METHODS[selected_func]['desc']}*")
@@ -186,7 +190,7 @@ def render_pnm_tab():
                         st.stop()
 
                     result, stdout = run_capturing_output(func_to_call, **args)
-                    st.session_state.net_stdout = stdout.strip()
+                    st.session_state.net_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
 
                     import pnmkit as nm
                     import pyvista as pv
@@ -209,7 +213,7 @@ def render_pnm_tab():
                         _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
                         return _func(**args)
                     result, stdout = run_capturing_output(run_standalone)
-                    st.session_state.net_stdout = stdout.strip()
+                    st.session_state.net_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
 
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     command_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
@@ -227,7 +231,7 @@ def render_pnm_tab():
                     func_to_run = getattr(run_obj, selected_func)
 
                     result, stdout = run_capturing_output(func_to_run, **args)
-                    st.session_state.net_stdout = stdout.strip()
+                    st.session_state.net_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
 
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     command_line = f"{selected_var}.{selected_func}({args_str})"

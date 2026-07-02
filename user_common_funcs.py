@@ -155,7 +155,7 @@ def makeNetworkTubes(
         print(f"  {var_name} range: {r.min():.4g} – {r.max():.4g}")
 
     # Threshold to remove zero/negative radii
-    thresh_val = trsh if trsh > -1e30 else 1e-9
+    thresh_val = trsh
     print(f"  Thresholding {var_name} >= {thresh_val:.3g} ...")
     mesh = mesh.threshold(value=thresh_val, scalars=var_name, preference="point")
     print(f"  After threshold: {mesh.n_points} points, {mesh.n_cells} cells")
@@ -187,7 +187,7 @@ def makeNetworkTubes(
 
     print(f"  Applying tube filter (radius=5e-5, xRad={xRad}, scalars={var_name}) ...")
     tubes = poly.tube(
-        radius=5e-5,
+        radius=1e-6,
         scalars=var_name,
         absolute=True,
         radius_factor=xRad,
@@ -197,3 +197,111 @@ def makeNetworkTubes(
     if tubes.n_points == 0:
         raise ValueError("Tube filter produced empty mesh. Try increasing xRad or check scalar units.")
     return tubes
+
+
+def renderPNMXmf(
+    filename: XmfDropdown,
+    pore_scalar: str = "radius",
+    throat_scalar: str = "radius",
+    xRadPore: float = 1.0,
+    xRadThroat: float = 1.0,
+    new_var_name: str = "network_mesh",
+) -> object:
+    """Render pore network with pores as sphere glyphs and throats as tubes.
+    
+    Pores are rendered as spheres of radius proportional to pore_scalar if xRadPore > 0.
+    Throats are rendered as tubes of radius proportional to throat_scalar if xRadThroat > 0.
+    """
+    import pyvista as pv
+    import numpy as np
+
+    print(f"[renderPNMXmf] Reading: {filename}")
+    mesh = pv.read(filename, force_ext='.xdmf')
+    print(f"  Loaded: {mesh.n_points} points, {mesh.n_cells} cells")
+    
+    # Auto-detect scalars
+    avail_all = list(mesh.point_data.keys()) + list(mesh.cell_data.keys())
+    if pore_scalar not in avail_all:
+        if "radius" in avail_all:
+            pore_scalar = "radius"
+        elif "radus" in avail_all:
+            pore_scalar = "radus"
+            
+    if throat_scalar not in avail_all:
+        if "radius" in avail_all:
+            throat_scalar = "radius"
+        elif "radus" in avail_all:
+            throat_scalar = "radus"
+
+    parts = []
+
+    # 1. Generate Pore Spheres
+    if xRadPore > 0:
+        print(f"  Generating pore spheres using scalar '{pore_scalar}' with xRadPore={xRadPore} ...")
+        pore_mesh = mesh
+        if pore_scalar in pore_mesh.cell_data and pore_scalar not in pore_mesh.point_data:
+            pore_mesh = pore_mesh.cell_data_to_point_data()
+            
+        if pore_scalar not in pore_mesh.point_data:
+            raise ValueError(f"Pore scalar '{pore_scalar}' not found in point or cell data.")
+            
+        # Pores are vertices, extract points as PolyData
+        pores = pv.PolyData(pore_mesh.points)
+        pores.point_data[pore_scalar] = pore_mesh.point_data[pore_scalar].copy()
+        
+        # Glyph sphere geometry (radius 1.0) scaled by scalar * factor
+        sphere_geom = pv.Sphere(radius=1.0, phi_resolution=8, theta_resolution=8)
+        spheres = pores.glyph(geom=sphere_geom, scale=pore_scalar, factor=xRadPore, orient=False)
+        print(f"  Generated pore spheres: {spheres.n_points} points, {spheres.n_cells} cells")
+        parts.append(spheres)
+
+    # 2. Generate Throat Tubes
+    if xRadThroat > 0:
+        print(f"  Generating throat tubes using scalar '{throat_scalar}' with xRadThroat={xRadThroat} ...")
+        
+        # Linearize or extract edges
+        VTK_QUADRATIC_EDGE = 21
+        cell_types = np.unique(mesh.celltypes).tolist()
+        if VTK_QUADRATIC_EDGE in cell_types:
+            n_cells = mesh.n_cells
+            raw     = mesh.cells
+            lines   = np.empty(n_cells * 3, dtype=np.intp)
+            for i in range(n_cells):
+                b = i * 4
+                lines[i*3], lines[i*3+1], lines[i*3+2] = 2, raw[b+1], raw[b+2]
+            poly = pv.PolyData()
+            poly.points = mesh.points.copy()
+            poly.lines  = lines
+            for name in mesh.point_data.keys():
+                poly.point_data[name] = mesh.point_data[name].copy()
+            for name in mesh.cell_data.keys():
+                poly.cell_data[name] = mesh.cell_data[name].copy()
+        else:
+            poly = mesh.extract_all_edges()
+            
+        # Ensure throat scalar is point-centered for tube filter
+        if throat_scalar in poly.cell_data and throat_scalar not in poly.point_data:
+            poly = poly.cell_data_to_point_data()
+            
+        if throat_scalar not in poly.point_data:
+            raise ValueError(f"Throat scalar '{throat_scalar}' not found in point or cell data.")
+
+        tubes = poly.tube(
+            radius=1e-6,
+            scalars=throat_scalar,
+            absolute=True,
+            radius_factor=xRadThroat,
+            n_sides=8,
+        )
+        print(f"  Generated throat tubes: {tubes.n_points} points, {tubes.n_cells} cells")
+        parts.append(tubes)
+
+    if not parts:
+        raise ValueError("At least one of xRadPore or xRadThroat must be positive.")
+
+    # Combine all parts
+    combined = parts[0]
+    for part in parts[1:]:
+        combined = combined + part
+
+    return combined

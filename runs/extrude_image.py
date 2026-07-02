@@ -26,5 +26,5 @@ img.write(f"{img_name}.raw")
 
 
 nm.mextract(img,  {"OutputName": img_name, "Overwrite": "T", "VoidRange": "0 0"})
-        
+
 list_files()

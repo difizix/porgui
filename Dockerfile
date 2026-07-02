@@ -40,6 +40,10 @@ RUN pip install --no-cache-dir \
     imageio \
     imageio-ffmpeg
 
+    # pyvista[jupyter] \
+    # stpyvista \
+
+
 # To be removed once pnmkit is stable
 # RUN git clone https://github.com/difizix/pnmkit.git pnmkit
 COPY pnmkit /app/pnmkit

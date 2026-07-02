@@ -345,6 +345,8 @@ def func_args_from_pybind_doc(doc: str) -> dict:
             py_type = float
         elif "Sequence" in type_str or "list" in type_str or "tuple" in type_str:
             py_type = list
+        elif "dict" in type_str:
+            py_type = dict
             
         default_val = None
         if default_str:
