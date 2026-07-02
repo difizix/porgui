@@ -5,7 +5,7 @@ from stpyvista import stpyvista
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_xdmf_func_args, run_capturing_output, FormParam
 from app_common import render_parseargs
-from user_common_funcs import loadXmf, makeNetworkTubes, mextract, snflow, renderPNMXmf
+from user_funcs import loadXmf, makeNetworkTubes, mextract, snflow, renderPNMXmf
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +25,7 @@ PYTHON_FUNCTIONS = {
     "loadXmf": loadXmf,
     "makeNetworkTubes": makeNetworkTubes,
     "renderPNMXmf": renderPNMXmf,
+    "mextract": mextract,
     "snflow": snflow,
 }
 

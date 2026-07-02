@@ -17,6 +17,7 @@ For debugging run commands in img3gui container:
 ```bash
 podman exec img3gui python -c "import image3kit; print(dir(image3kit))"
 ```
+The root directory is mounted in podman, we can run the test script in podman img3gui container, well unless we change pnmkit which requires `make restartPodman`.
 
 ## Git Workflow
 - **Do not amend commits**: Always create new commits for any incremental changes. Do not use `git commit --amend` or mutate previous commit histories, unless explicitely asked to do so.

@@ -27,6 +27,7 @@ def loadImg(
     cls_map = {
         "VxlImgU16": ik.VxlImgU16,
         "VxlImgU8":  ik.VxlImgU8,
+        "VxlImgI32": ik.VxlImgI32,
         "VxlImgF32": ik.VxlImgF32,
     }
     cls = cls_map.get(img_type, ik.VxlImgU16)
@@ -187,11 +188,11 @@ def makeNetworkTubes(
 
     print(f"  Applying tube filter (radius=5e-5, xRad={xRad}, scalars={var_name}) ...")
     tubes = poly.tube(
-        radius=1e-6,
+        radius=1e-6 * xRad,
         scalars=var_name,
         absolute=True,
-        radius_factor=xRad,
-        n_sides=10,
+        radius_factor = xRad,
+        n_sides=8,
     )
     print(f"  Tubes: {tubes.n_points} points, {tubes.n_cells} cells")
     if tubes.n_points == 0:
@@ -250,7 +251,7 @@ def renderPNMXmf(
         pores.point_data[pore_scalar] = pore_mesh.point_data[pore_scalar].copy()
         
         # Glyph sphere geometry (radius 1.0) scaled by scalar * factor
-        sphere_geom = pv.Sphere(radius=1.0, phi_resolution=8, theta_resolution=8)
+        sphere_geom = pv.Sphere(radius=1.0, phi_resolution=10, theta_resolution=10)
         spheres = pores.glyph(geom=sphere_geom, scale=pore_scalar, factor=xRadPore, orient=False)
         print(f"  Generated pore spheres: {spheres.n_points} points, {spheres.n_cells} cells")
         parts.append(spheres)
@@ -291,7 +292,7 @@ def renderPNMXmf(
             scalars=throat_scalar,
             absolute=True,
             radius_factor=xRadThroat,
-            n_sides=8,
+            n_sides=10,
         )
         print(f"  Generated throat tubes: {tubes.n_points} points, {tubes.n_cells} cells")
         parts.append(tubes)

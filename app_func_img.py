@@ -7,7 +7,7 @@ import sys
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args, run_capturing_output, FormParam
 from app_common import render_parseargs
-from user_common_funcs import loadImg, mextract, snflow
+from user_funcs import loadImg, mextract, snflow
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -72,6 +72,7 @@ def render_imgpro_tab():
     vxl_types = (
         st.session_state.original_VxlImgU16,
         st.session_state.original_VxlImgU8,
+        st.session_state.original_VxlImgI32,
         st.session_state.original_VxlImgF32
     )
     if st.session_state.processed_image is not None and isinstance(st.session_state.processed_image, vxl_types) and "img" not in st.session_state.workspace_vars:
@@ -95,7 +96,7 @@ def render_imgpro_tab():
 
 
         with st.expander("📤 Upload & Load Image to Cache"):
-            uploaded_file = st.file_uploader("Upload Image (TIFF, MHD/RAW, PNG, AM, DAT)", type=["tif", "tiff", "mhd", "raw", "dat", "png", "am"], key="uploader_widget")
+            uploaded_file = st.file_uploader("Upload Image (TIFF, MHD/RAW, PNG, AM, DAT, RAW.GZ)", type=["tif", "tiff", "mhd", "raw", "raw.gz", "gz", "dat", "png", "am"], key="uploader_widget")
             if uploaded_file is not None:
                 ext = os.path.splitext(uploaded_file.name)[1].lower()
                 default_idx = 1 if ext in [".png", ".am", ".dat"] else 0
@@ -103,28 +104,19 @@ def render_imgpro_tab():
                 with col_up_name:
                     new_var_name = st.text_input("Variable Name", value="img_uploaded", key="up_var_name")
                 with col_up_type:
-                    up_img_type = st.selectbox("Type", ["VxlImgU16", "VxlImgU8", "VxlImgF32"], index=default_idx, key="up_img_type")
-
-                is_raw = uploaded_file.name.endswith(".raw")
-                raw_shape = None
-                if is_raw:
-                    shape_str = st.text_input("RAW Shape (Z, Y, X), e.g. (148, 1775, 467)", value="", key="raw_shape_str")
-                    if shape_str:
-                        try:
-                            raw_shape = eval(shape_str)
-                        except Exception:
-                            st.error("Invalid shape format.")
+                    up_img_type = st.selectbox("Type", ["VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32"], index=default_idx, key="up_img_type")
 
                 if st.button("Load Image", key="btn_load_uploaded"):
                     temp_path = uploaded_file.name
                     with open(temp_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
                     try:
-                        # Let's check the type and load using the appropriate VxlImg class
                         if up_img_type == "VxlImgU16":
                             loaded_obj = st.session_state.original_VxlImgU16(temp_path)
                         elif up_img_type == "VxlImgU8":
                             loaded_obj = st.session_state.original_VxlImgU8(temp_path)
+                        elif up_img_type == "VxlImgI32":
+                            loaded_obj = st.session_state.original_VxlImgI32(temp_path)
                         else:
                             loaded_obj = st.session_state.original_VxlImgF32(temp_path)
 
@@ -274,6 +266,7 @@ def render_imgpro_tab():
                     is_vxl = isinstance(result, (
                         st.session_state.original_VxlImgU16,
                         st.session_state.original_VxlImgU8,
+                        st.session_state.original_VxlImgI32,
                         st.session_state.original_VxlImgF32,
                     ))
                     if is_vxl:
@@ -323,6 +316,7 @@ def render_imgpro_tab():
                     # If result is VxlImg, use it, otherwise use run_obj
                     if isinstance(result, (st.session_state.original_VxlImgU16,
                                         st.session_state.original_VxlImgU8,
+                                        st.session_state.original_VxlImgI32,
                                         st.session_state.original_VxlImgF32)):
                         output_img = result
                     else:

@@ -1,7 +1,6 @@
 runs/*/
 runs/*.log
 pnmkit/
-runs/
 pyvtk/
 
 # user notes

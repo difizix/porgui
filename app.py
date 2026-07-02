@@ -134,6 +134,7 @@ def update_workspace_vars(namespace):
     for k, v in namespace.items():
         if isinstance(v, (st.session_state.original_VxlImgU16,
                           st.session_state.original_VxlImgU8,
+                          st.session_state.original_VxlImgI32,
                           st.session_state.original_VxlImgF32)):
             st.session_state.workspace_vars[k] = v
             # Default active image to the last detected 'img' variable, or first detected image
@@ -150,6 +151,7 @@ if "image_cache" not in st.session_state:
 if "original_VxlImgU16" not in st.session_state:
     st.session_state.original_VxlImgU16 = ik.VxlImgU16
     st.session_state.original_VxlImgU8 = ik.VxlImgU8
+    st.session_state.original_VxlImgI32 = ik.VxlImgI32
     st.session_state.original_VxlImgF32 = ik.VxlImgF32
 
 def get_patched_class(original_cls, class_name):
@@ -176,6 +178,7 @@ def get_patched_class(original_cls, class_name):
 
 ik.VxlImgU16 = get_patched_class(st.session_state.original_VxlImgU16, "VxlImgU16")
 ik.VxlImgU8 = get_patched_class(st.session_state.original_VxlImgU8, "VxlImgU8")
+ik.VxlImgI32 = get_patched_class(st.session_state.original_VxlImgI32, "VxlImgI32")
 ik.VxlImgF32 = get_patched_class(st.session_state.original_VxlImgF32, "VxlImgF32")
 
 

@@ -147,7 +147,7 @@ def func_args_from_inspect(func) -> dict:
     """Extract params from a fully-annotated Python function using inspect.
 
     The function must have full type annotations on all parameters.
-    Use FileDropdown / ImageType from user_common_funcs.py as annotation types to
+    Use FileDropdown / ImageType from user_funcs.py as annotation types to
     get special Streamlit widgets instead of a plain text input.
 
     Returns {"params": [...], "desc": "..."} compatible with CURATED_METHODS.

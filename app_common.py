@@ -3,7 +3,7 @@ import streamlit as st
 import os
 import glob
 
-def render_parseargs(params, key_prefix="", num_cols=3):
+def render_parseargs(params, key_prefix="", num_cols=2):
     args_dict = {}
     if not params:
         return args_dict
@@ -61,7 +61,7 @@ def render_parseargs(params, key_prefix="", num_cols=3):
                     val = st.selectbox(p_name, var_options, index=default_idx, key=widget_key, help=help_text)
                     args_dict[p_name] = val
             elif type_val in ("img_dropdown", "file_dropdown"):
-                extensions = ["*.tif", "*.tiff", "*.am", "*.png", "*.mhd", "*.dat", "*.raw"]
+                extensions = ["*.tif", "*.tiff", "*.am", "*.png", "*.mhd", "*.dat", "*.raw", "*.raw.gz"]
                 found_files = []
                 for ext in extensions:
                     found_files.extend(glob.glob(ext))
@@ -97,7 +97,7 @@ def render_parseargs(params, key_prefix="", num_cols=3):
                     val = st.selectbox(p_name, found_dirs, index=default_idx, key=widget_key, help=help_text)
                     args_dict[p_name] = val
             elif type_val == "type_dropdown":
-                type_options = ["VxlImgU16", "VxlImgU8", "VxlImgF32"]
+                type_options = ["VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32"]
                 default_idx = type_options.index(default) if default in type_options else 0
                 val = st.selectbox(p_name, type_options, index=default_idx, key=widget_key, help=help_text)
                 args_dict[p_name] = val

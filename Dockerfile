@@ -38,10 +38,9 @@ RUN pip install --no-cache-dir \
     scipy \
     sqlalchemy \
     imageio \
-    imageio-ffmpeg
-
-    # pyvista[jupyter] \
-    # stpyvista \
+    imageio-ffmpeg \
+    pyvista[jupyter] \
+    stpyvista
 
 
 # To be removed once pnmkit is stable
