@@ -1,116 +1,109 @@
-## GUI app
+## GUI and demos for pore-scale modelling codes
 
-* A GUI for image3kit and pnmkit in order to make them easier to use
+* Example python scripts for pore scale image processing and simulation.
 
-The image3kit has been a cmd-based app that writes files into disk. It works by running a non-interactive script (e.g. runs/workflow.py). The idea is to create a GUI for it, in a way it can be used interactively for building up the workflow script, if needed save it as a python script, edit and replay it whenever needed.
+* A streamlit-based dashboard for these pipelines.
 
-The idea is to create a minimal one based on the dering_segment.py workflow. The img variable needs to be cached (persistant between different GUI actions).
+The dashboard is work in progress: so far image3kit and pnmkit functioanlity are barely usable.
+
+The scripts are high-level and primarily cli-based that writes files into disk. The lower-level logic (C++ or python packages) is/shall be usable both interactively from GUI as well as from the cli scripts, for replaying.
+
+## Features
 
 The GUI app consists of multiple tabs:
 
 1. workflow (python) script editor tab
 2. 2D visualization and interactive function executions tab
-3. 3D visualization tab (TODO for later)
-4. task manager tab (TODO for later)
-5. log file browser tab (TODO for later)
-6. svg/png image viewer tab (TODO for later)
+3. 3D visualization tab based on pyvista for vtk/xdmf and OpenFOAM (TODO) output files
+4. log file browser tab
+5. svg/png image viewer tab
+6. TODO: workflow / task management
 
 
 ### workflow (python) script editor tab
-Widgets:
-* Python code editor with syntax highlighting, and image caching utilities
-    * TODO write a global a function for reusing cached image variables, ideally we need a function named get_load_image() that returns the loaded image object and caches it in the session state if not already cached. A thin right-hand side column shall show all the cached variables, including image size.
 
-    * The img variable shall be defaulted to the first cached variable that is of VoxelImage type (currently named img), but a drop down shall allow the user to select any cached variable of VoxelImage type.
-
-
-### 2D visualization and interactive function executions tab:
-
-I want a generic function arg visualizer, for the Interactive visualizer tab, for so that it can be used to visualize the arguments of any class member function, and a button to run it. In this app it shall be used to visualize the arguments of a selection of functions of image3kit and pnmkit, selected by the user (from a drop-down menu). The arguments shall be displayed below the dropdown, and the user can change the arguments, and then click a button to run the function. The commands run shall be saved in a sesstion string and be viewable in the python editor widget.
-
-This shall also include a name for the output of the function (if it is an image, it shall be added to the cached variables).
-
-We may need to improve the type hints of the image3kit and pnmkit to allow the general function arg visualizer to work properly.
+* Python code editor with syntax highlighting, and image caching
+    * So far VxlImg (and Xdmf?) objects are cached, 
+    * TODO: do same for VTK/PyViz objects (Xdmf objects not usefull for visualization)
 
 
-### 3D visualization tab (TODO for later)
+### 2D visualization and interactive function executions
+
+### 3D visualization
 
 * The third step is to create a 3D visualization widget based on vtk, both for 3D countour surfaces as well as the pnmkit/Xdmf stack files.
 
-### Task manager tab (TODO for later)
+### Task manager (TODO)
 
-forget this for now!
-The workflows shall run in background with a lockfile that is used to monitor their pid and status. The task manager shall be used to view and cancel running workflows, also preventing same workflow from running twice. in the same directory.
+TODO: The long-running workflows shall be launched in background with a lockfile that is used to monitor their pid and status. The task manager shall be used to view and cancel running workflows, also preventing same workflow from running twice. in the same directory.
+For OpenFOAM, we need to run in containers/remotely, as they are not pip-installable.
 
-### Log file browser tab (TODO for later)
+### Log file browser
 
-I have copied the `app_logs.py` from [image3kit/agui](https://github.com/image3kit/agui), needs to be adapted to image3kit.
+Copied the `app_logs.py` from [image3kit/difizui](https://github.com/image3kit/agui), needs to be adapted to image3kit.
 
-### SVG/PNG image viewer tab (TODO for later)
+### SVG/PNG image viewer
 
-I have copied the `app_plots.py` from [image3kit/agui](https://github.com/image3kit/agui), needs to be adapted to image3kit.
+Copied the `app_plots.py` from [image3kit/difizui](https://github.com/image3kit/agui), needs to be adapted to image3kit.
 
 ---
 
 ## GUI local installation:
 
 ```bash
-pip install -r requirements.txt
-## PNMkit 
-sudo apt-get install libboost-all-dev
-sudo apt-get install libopenmpi-dev openmpi-bin
-pip install git+https://github.com/ai4netzero/pnmkit.git
+## PNMkit dependencies:
+sudo apt-get install libboost-all-dev libopenmpi-dev openmpi-bin
 
+## Set up virtual environment and install dependencies:
+python -m venv .venv
+# ⚠️ Uncomment pnmkit and pyvtk in requirements.txt
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
 Run GUI:
 ```bash
-streamlit run app.py
+.venv/bin/python -m streamlit run app.py
 ```
+then open http://localhost:8501 in your browser
 
-## Command-line usage
+### Current Examples, see [./runs](./runs)
 
-* Setup venv:
-```
-python -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-```
-
-### Current Examples
-
-* [dering_segment.py](./dering_segment.py)
+* [dering_segment.py](./runs/dering_segment.py)
     * Illustrates how to create new filters using NumPy: `desharpen` function
     * Illustrates use of dering filter (rather flimsy -- difficult to get its parameters right)
     * `segment2` function (do not use this in production, does not work well, unless you are willing to improve it!)
     * Plotting / screenshots
 
-* run dering_segment.py:
-```
-.venv/bin/python  dering_segment.py  volume_467x1775x1480.raw
+* run dering_segment.py from command line:
+```bash
+source .venv/bin/activate
+cd runs
+python  dering_segment.py  volume_467x1775x1480.raw
 ```
 
-* [ik_vtk_utils.py](./ik_vtk_utils.py)
+* [ik_vtk_utils.py](./runs/ik_vtk_utils.py)
     - Using VTK for offscreen 3D visualisation
     - For now you got to edit ik_vtk_utils.py and and set the threshold and filename
+```bash
+python  ik_vtk_utils.py  volume_467x1775x1480.am/NXxNYxNZ.raw
 ```
-python  ik_vtk_utils.py  <IMAGE_NAME>.am/_NXxNYxNZ.raw/.tif/.mhd
-```
+
+✅ You can lunch these from editor tab of the streamlit gui as well
 
 ### TODO
 
-* Integrate with OpenFoam/GeoChemFoam
+* Integrate with OpenFoam/GeoChemFoam ?
+* More integration with XPM
+
+
 
 ### CONTRIBUTING
 
-Please let me know beforehand and I will make this repo more professional.
+Please push your changes to a seperate branch and open a pull request or let me know somehow. You are also welcome to create a github issue for discussing/proposing changes or new features.
 
-The `image3kit` pip package lacks proper documentation, but you can clone the [image3kit] repository and use LLMs for help!
+Before getting your hands dirty with code, check the other branches, in particular `wip/main`, which contains changes whose commit history is overwritten (via force push and rebase).
 
-
-
-> [!CAUTION]
-> The original author will submit draft commits to the `main` branch directly, and overwrites the git history!, unless someone else starts pushing git commits.
-
+The repo is mostly vibe-coded and is in pre-release (pre-alpha) state, so expect bugs, and missing features.
 
 <!-- References -->
 
