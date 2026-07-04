@@ -179,19 +179,29 @@ def workflow_studio(st, ik, update_workspace_vars):
                 lf.write(f"✅ cmd: '{selected_script} {args_input}':\n")
                 lf.write(captured_combined)
 
-            lines = st.session_state.console_output.split("\n")
-            stats = []
-            for line in lines:
-                if "mean" in line and "std" in line:
-                    stats.append(line.strip())
-            st.session_state.parsed_stats = stats
-
             update_workspace_vars(exec_namespace)
 
+        except SystemExit as se:
+            captured_combined = stdout_buf.getvalue() + "\n" + stderr_buf.getvalue()
+            st.session_state.console_output = captured_combined
+            
+            if se.code in (0, None):
+                st.success("Workflow completed successfully!")
+                with open(log_path, "w") as lf:
+                    lf.write(f"✅ cmd: '{selected_script} {args_input}':\n")
+                    lf.write(captured_combined)
+            else:
+                st.error(f"Workflow exited with code {se.code}.")
+                with open(log_path, "w") as lf:
+                    lf.write(f"⛔ cmd: '{selected_script} {args_input}':\n")
+                    lf.write(f"# Status: ERROR (SystemExit: {se.code})\n\n")
+                    lf.write(captured_combined)
+
+            update_workspace_vars(exec_namespace)
         except BaseException:
             err_text = stdout_buf.getvalue() + "\n" + stderr_buf.getvalue() + "\n" + traceback.format_exc()
             st.session_state.console_output = err_text
-            st.error("Workflow failed with execution error (or sys.exit was called).")
+            st.error("Workflow failed with execution error.")
 
             with open(log_path, "w") as lf:
                 lf.write(f"⛔ cmd: '{selected_script} {args_input}':\n")

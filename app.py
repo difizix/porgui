@@ -158,15 +158,21 @@ def get_patched_class(original_cls, class_name):
     class PatchedClass(original_cls):
         def __init__(self, *args, **kwargs):
             if len(args) == 1 and isinstance(args[0], str):
+                var_name = args[0]
+                # 1. Check if it is an in-memory variable in workspace_vars and not a file on disk
+                if "workspace_vars" in st.session_state and var_name in st.session_state.workspace_vars and not os.path.exists(var_name):
+                    cached_obj = st.session_state.workspace_vars[var_name]
+                    if isinstance(cached_obj, original_cls):
+                        super().__init__(cached_obj)
+                        return
+                
+                # 2. Check if cached in file-based image_cache
                 abs_path = os.path.abspath(args[0])
                 cache_key = f"{class_name}_{abs_path}"
                 
-                # Check if cached in memory
                 if cache_key in st.session_state.image_cache:
                     cached_obj = st.session_state.image_cache[cache_key]
                     super().__init__(cached_obj)
-                    self.voxelSize = cached_obj.voxelSize
-                    self.origin = cached_obj.origin
                     return
                 else:
                     super().__init__(*args, **kwargs)
@@ -191,8 +197,6 @@ if "last_executed_script" not in st.session_state:
     st.session_state.last_executed_script = None
 if "processed_image" not in st.session_state:
     st.session_state.processed_image = None
-if "parsed_stats" not in st.session_state:
-    st.session_state.parsed_stats = []
 if "workspace_vars" not in st.session_state:
     st.session_state.workspace_vars = {}
 if "session_commands" not in st.session_state:
