@@ -18,10 +18,7 @@ if workspace_root not in sys.path:
 # Wrap CLI Apps
 
 STANDALONE_FUNCTIONS = {
-    "vtkXdmfScreenshot": ("pyvtk.vtkXdmfScreenshot", "make_parser", "main"),
-    "vtkXdmfAnimate": ("pyvtk.vtkXdmfAnimate", "make_parser", "main"),
-    "vtkFoamEnd2Png": ("pyvtk.vtkFoamEnd2Png", "make_parser", "main"),
-    "vtkFoamAnimate": ("pyvtk.vtkFoamAnimate", "make_parser", "main"),
+    # Will be populated dynamically, from ../usr and usr/
 }
 
 PYTHON_FUNCTIONS = {

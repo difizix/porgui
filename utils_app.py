@@ -187,7 +187,8 @@ def args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_n
         cmd_line = f"{var_name} = ik.{img_type}('{filename}')"
     elif is_standalone:
         args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-        cmd_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
+        cmd_line = f"import {selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
+        # TODO we got to look and load from ./myscripts and ../myscripts directories
     else:
         args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
         if copy_on_write:

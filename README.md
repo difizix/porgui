@@ -56,7 +56,7 @@ sudo apt-get install libboost-all-dev libopenmpi-dev openmpi-bin
 
 ## Set up virtual environment and install dependencies:
 python -m venv .venv
-# ⚠️ Uncomment pnmkit and pyvtk in requirements.txt
+# ⚠️ Uncomment pnmkit in requirements.txt
 .venv/bin/python -m pip install -r requirements.txt
 ```
 

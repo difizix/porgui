@@ -1,6 +1,5 @@
 git+https://github.com/image3kit/image3kit.git
 # git+https://github.com/image3kit/pnmkit.git
-# git+https://github.com/image3kit/pyvtk.git
 vtk
 streamlit
 streamlit_code_editor
