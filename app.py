@@ -118,6 +118,8 @@ def update_workspace_vars(namespace):
             # Default active image to the last detected 'img' variable, or first detected image
             if k == "img" or st.session_state.processed_image is None:
                 st.session_state.processed_image = v
+                st.session_state.active_var = k
+                st.session_state.active_var_selectbox_widget = k
 
 # ----------------------------------------------------
 # TRANSPARENT MEMORY CACHING (Monkeypatching loader classes)

@@ -66,6 +66,11 @@ for _pf_name, _pf_func in PYTHON_FUNCTIONS.items():
 # TAB 2: INTERACTIVE VISUALIZER
 # ----------------------------------------------------
 def render_imgpro_tab():
+    if "pending_active_var" in st.session_state:
+        pending = st.session_state.pop("pending_active_var")
+        st.session_state.active_var = pending
+        st.session_state.active_var_selectbox_widget = pending
+
     if "generated_code" not in st.session_state:
         st.session_state.generated_code = None
     if "img_stdout" not in st.session_state:
@@ -140,6 +145,8 @@ def render_imgpro_tab():
                         st.session_state.image_cache[cache_key] = loaded_obj
                         st.session_state.workspace_vars[new_var_name] = loaded_obj
                         st.session_state.processed_image = loaded_obj
+                        st.session_state.active_var = new_var_name
+                        st.session_state.pending_active_var = new_var_name
                         st.success(f"Loaded {uploaded_file.name} as `{new_var_name}`!")
                         st.rerun()
                     except Exception as load_err:
@@ -352,6 +359,7 @@ def render_imgpro_tab():
                     st.session_state.workspace_vars[out_var_name] = output_img
                     st.session_state.processed_image = output_img
                     st.session_state.active_var = out_var_name
+                    st.session_state.pending_active_var = out_var_name
 
                     # Generate Python command line
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
