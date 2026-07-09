@@ -195,11 +195,13 @@ def args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_n
         cmd_line = f"import {selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
         # TODO we got to look and load from ./myscripts and ../myscripts directories
     else:
-        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
+        target_var = args.get("self", selected_var)
+        other_args = {k: v for k, v in args.items() if k != "self"}
+        args_str = ", ".join(f"{k}={repr(v)}" for k, v in other_args.items())
         if copy_on_write:
-            cmd_line = f"{out_var_name} = {selected_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
+            cmd_line = f"{out_var_name} = {target_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
         else:
-            cmd_line = f"{out_var_name} = {selected_var}\n{out_var_name}.{selected_func}({args_str})"
+            cmd_line = f"{out_var_name} = {target_var}\n{out_var_name}.{selected_func}({args_str})"
     return cmd_line
 
 def get_output_files(dir=top_dir/"runs"):
@@ -325,7 +327,7 @@ def func_args_from_pybind_doc(doc: str) -> dict:
         parts.append("".join(current).strip())
     params = []
     for part in parts:
-        if not part or part.startswith("self"):
+        if not part:
             continue
         if '=' in part:
             declaration, default_str = part.split('=', 1)
@@ -353,6 +355,20 @@ def func_args_from_pybind_doc(doc: str) -> dict:
             py_type = list
         elif "dict" in type_str:
             py_type = dict
+        elif "VxlImgU16" in type_str:
+            py_type = "VxlImgU16"
+        elif "VxlImgU8" in type_str:
+            py_type = "VxlImgU8"
+        elif "VxlImgI32" in type_str:
+            py_type = "VxlImgI32"
+        elif "VxlImgF32" in type_str:
+            py_type = "VxlImgF32"
+        elif "VxlImg" in type_str:
+            py_type = "VxlImg"
+        elif "Xdmf" in type_str:
+            py_type = "Xdmf"
+        elif "Xdml" in type_str:
+            py_type = "Xdml"
             
         default_val = None
         if default_str:

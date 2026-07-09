@@ -225,20 +225,30 @@ def render_pnm_tab():
                     if copy_on_write:
                         st.error("Copy-on-write is not implemented for custom Xdmf objects. Please run in-place.")
                         st.stop()
-                    run_obj = net_obj
-                    func_to_run = getattr(run_obj, selected_func)
+                    
+                    target_var = args.pop("self", None)
+                    if target_var:
+                        run_obj = st.session_state.workspace_vars.get(target_var)
+                    else:
+                        target_var = selected_var
+                        run_obj = st.session_state.workspace_vars.get(target_var) if target_var else None
 
+                    if run_obj is None:
+                        st.error("No target network object available to execute method on.")
+                        st.stop()
+
+                    func_to_run = getattr(run_obj, selected_func)
                     result, stdout = run_capturing_output(func_to_run, **args)
                     st.session_state.net_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
 
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                    command_line = f"{selected_var}.{selected_func}({args_str})"
+                    command_line = f"{target_var}.{selected_func}({args_str})"
                     if st.session_state.session_commands:
                         st.session_state.session_commands += f"\n\n{command_line}"
                     else:
                         st.session_state.session_commands = command_line
 
-                    st.session_state.net_success = f"Successfully executed `{selected_func}` in-place on `{selected_var}`."
+                    st.session_state.net_success = f"Successfully executed `{selected_func}` in-place on `{target_var}`."
                     st.rerun()
             except Exception as run_err:
                 import traceback

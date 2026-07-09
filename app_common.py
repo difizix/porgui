@@ -51,13 +51,65 @@ def render_parseargs(params, key_prefix="", num_cols=2):
                         val_default = 0.0
                     val = st.number_input(p_name, value=val_default, step=0.1, key=widget_key, help=help_text)
                 args_dict[p_name] = val
-            elif type_val == "var_dropdown":
-                var_options = list(st.session_state.workspace_vars.keys())
+            elif type_val == "var_dropdown" or (isinstance(type_val, str) and any(x in type_val for x in ("VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid"))) or (inspect.isclass(type_val) and any(x in type_val.__name__ for x in ("VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid"))):
+                # Figure out the target type name as a string
+                target_type_str = ""
+                if isinstance(type_val, str):
+                    for possible in ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid"):
+                        if possible in type_val:
+                            target_type_str = possible
+                            break
+                elif inspect.isclass(type_val):
+                    name = type_val.__name__
+                    for possible in ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid"):
+                        if possible in name:
+                            target_type_str = possible
+                            break
+
+                # Get acceptable classes
+                vxl_types = tuple(
+                    getattr(st.session_state, name) for name in (
+                        "original_VxlImgU16", "original_VxlImgU8",
+                        "original_VxlImgI32", "original_VxlImgF32"
+                    ) if hasattr(st.session_state, name)
+                )
+
+                # Filter workspace variables based on target type
+                var_options = []
+                for k, v in st.session_state.workspace_vars.items():
+                    if target_type_str and "VxlImg" in target_type_str:
+                        if target_type_str == "VxlImg":
+                            if isinstance(v, vxl_types):
+                                var_options.append(k)
+                        else:
+                            orig_attr = f"original_{target_type_str}"
+                            if hasattr(st.session_state, orig_attr):
+                                orig_cls = getattr(st.session_state, orig_attr)
+                                if isinstance(v, orig_cls):
+                                    var_options.append(k)
+                    elif target_type_str:
+                        v_type_name = type(v).__name__
+                        if target_type_str in v_type_name or (target_type_str == "Xdmf" and "Xdml" in v_type_name) or (target_type_str == "Xdml" and "Xdmf" in v_type_name):
+                            var_options.append(k)
+                    else:
+                        var_options.append(k)
+
                 if not var_options:
-                    st.warning("No variables found in workspace.")
+                    st.warning(f"No compatible variables of type '{target_type_str or 'any'}' found in workspace.")
                     args_dict[p_name] = ""
                 else:
-                    default_idx = var_options.index(default) if default in var_options else 0
+                    # Choose default
+                    default_sel = default
+                    if default_sel not in var_options:
+                        active_var = st.session_state.get("active_var")
+                        net_active = st.session_state.get("net_active_var_selectbox")
+                        if active_var in var_options:
+                            default_sel = active_var
+                        elif net_active in var_options:
+                            default_sel = net_active
+                        else:
+                            default_sel = var_options[0]
+                    default_idx = var_options.index(default_sel)
                     val = st.selectbox(p_name, var_options, index=default_idx, key=widget_key, help=help_text)
                     args_dict[p_name] = val
             elif type_val in ("img_dropdown", "file_dropdown"):

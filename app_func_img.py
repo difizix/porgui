@@ -191,31 +191,9 @@ def render_imgpro_tab():
 
         # 🛠️ Interactive Function Executor Section
         st.markdown('<div class="card-title">🛠️ Interactive Function Executor</div>', unsafe_allow_html=True)
-        target_var = selected_var
-        target_img = img
-        if var_options:
-            c1_tr, c2_tr = st.columns([2, 3])
-            with c1_tr:
-                st.markdown("<div style='padding-top: 6px;'><b>Target Image for Execution:</b></div>", unsafe_allow_html=True)
-            with c2_tr:
-                default_idx = var_options.index(selected_var) if selected_var in var_options else 0
-                target_var = st.selectbox(
-                    "Target Image for Execution:",
-                    var_options,
-                    index=default_idx,
-                    key="target_var_sel",
-                    label_visibility="collapsed"
-                )
-            target_img = st.session_state.workspace_vars[target_var]
 
         # Get list of functions
-        standalone_options = list(STANDALONE_FUNCTIONS.keys())
-        available_standalones = [f for f in standalone_options if f in CURATED_METHODS]
-        if target_img is not None:
-            # Filter curated methods to only those that exist on the target image type
-            func_options = sorted([f for f in CURATED_METHODS.keys() if hasattr(target_img, f)])
-        else:
-            func_options = sorted(list(PYTHON_FUNCTIONS.keys()) + available_standalones)
+        func_options = sorted(list(CURATED_METHODS.keys()))
 
         c1_fn, c2_fn = st.columns([2, 3])
         with c1_fn:
@@ -254,7 +232,8 @@ def render_imgpro_tab():
             st.write("##### Execution Options:")
             col_opt1, col_opt2 = st.columns([1, 1])
             with col_opt1:
-                out_var_name = st.text_input("Output Variable Name", value=f"{target_var}_filtered" if target_var else "img_filtered")
+                ref_var = args.get("self") or args.get("image_var") or selected_var
+                out_var_name = st.text_input("Output Variable Name", value=f"{ref_var}_filtered" if ref_var else "img_filtered")
             with col_opt2:
                 copy_on_write = st.checkbox("Copy first (protect original image)", value=True, help="If unchecked, the operation is run in-place modifying the selected variable.")
 
@@ -273,7 +252,10 @@ def render_imgpro_tab():
 
         if btn_gen:
             try:
-                st.session_state.generated_code = args_to_cmd_line(selected_func, args, copy_on_write, target_var, out_var_name, is_standalone)
+                st.session_state.generated_code = args_to_cmd_line(
+                    selected_func, args, copy_on_write,
+                    args.get("self") or selected_var, out_var_name, is_standalone
+                )
             except Exception as gen_err:
                 st.error(f"Failed to generate code: {gen_err}")
 
@@ -334,6 +316,18 @@ def render_imgpro_tab():
                     st.session_state.img_success = f"Successfully executed standalone command `{selected_func}`!"
                     st.rerun()
                 else:
+                    # Pop self from args if present, otherwise fallback to viewed image (selected_var)
+                    target_var = args.pop("self", None)
+                    if target_var:
+                        target_img = st.session_state.workspace_vars.get(target_var)
+                    else:
+                        target_var = selected_var
+                        target_img = st.session_state.workspace_vars.get(target_var) if target_var else None
+
+                    if target_img is None:
+                        st.error("No target image available to execute method on.")
+                        st.stop()
+
                     # Prepare object to run on
                     if copy_on_write:
                         run_obj = target_img.copy()
