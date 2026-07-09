@@ -35,7 +35,16 @@ CURATED_METHODS = {
     "threshold101": get_vxlImg_func_args("threshold101"),
     "write8bit":    get_vxlImg_func_args("write8bit"),
     "distMapExtrude": get_vxlImg_func_args("distMapExtrude"),
+    "VxlDifShort":  get_vxlImg_func_args("VxlDifShort"),
+    "VxlMinizVar":  get_vxlImg_func_args("VxlMinizVar"),
 }
+
+#  TODO Since now U16 has more functions that int and u8, 
+#   we got to make sure the functions exposed depend on the image type.
+#  Actually we got to split the logic for rendered image (right col)
+#  and the arguments of the function that is executed (via a drop-down that defaults to the image being viewed if compatible type).
+# The right  Viewer column shall show the output of the executed function if it is a VXlImgU... type,
+# If the execution log shows that a png or svg files are generated, those shall be rendered below the slice , in the right-side column
 
 
 for _sf_name, _sf_tuple in STANDALONE_FUNCTIONS.items():
@@ -82,11 +91,21 @@ def render_imgpro_tab():
 
         var_options = [k for k, v in st.session_state.workspace_vars.items() if isinstance(v, vxl_types)]
         if var_options:
+            if "active_var" not in st.session_state or st.session_state.active_var not in var_options:
+                st.session_state.active_var = var_options[0]
+
             c1, c2 = st.columns([2, 3])
             with c1:
-                st.markdown("<div style='padding-top: 6px;'><b>Active Image Variable:</b></div>", unsafe_allow_html=True)
+                st.markdown("<div style='padding-top: 6px;'><b>Viewed Image Variable:</b></div>", unsafe_allow_html=True)
             with c2:
-                selected_var = st.selectbox("Select Active Image Variable", var_options, index=0, key="active_var_selectbox", label_visibility="collapsed")
+                selected_var = st.selectbox(
+                    "Select Viewed Image Variable",
+                    var_options,
+                    index=var_options.index(st.session_state.active_var),
+                    key="active_var_selectbox_widget",
+                    label_visibility="collapsed"
+                )
+            st.session_state.active_var = selected_var
             img = st.session_state.workspace_vars[selected_var]
         else:
             selected_var = None
@@ -174,12 +193,29 @@ def render_imgpro_tab():
 
         # 🛠️ Interactive Function Executor Section
         st.markdown('<div class="card-title">🛠️ Interactive Function Executor</div>', unsafe_allow_html=True)
+        target_var = selected_var
+        target_img = img
+        if var_options:
+            c1_tr, c2_tr = st.columns([2, 3])
+            with c1_tr:
+                st.markdown("<div style='padding-top: 6px;'><b>Target Image for Execution:</b></div>", unsafe_allow_html=True)
+            with c2_tr:
+                default_idx = var_options.index(selected_var) if selected_var in var_options else 0
+                target_var = st.selectbox(
+                    "Target Image for Execution:",
+                    var_options,
+                    index=default_idx,
+                    key="target_var_sel",
+                    label_visibility="collapsed"
+                )
+            target_img = st.session_state.workspace_vars[target_var]
 
         # Get list of functions
         standalone_options = list(STANDALONE_FUNCTIONS.keys())
         available_standalones = [f for f in standalone_options if f in CURATED_METHODS]
-        if img is not None:
-            func_options = sorted(list(CURATED_METHODS.keys()))
+        if target_img is not None:
+            # Filter curated methods to only those that exist on the target image type
+            func_options = sorted([f for f in CURATED_METHODS.keys() if hasattr(target_img, f)])
         else:
             func_options = sorted(list(PYTHON_FUNCTIONS.keys()) + available_standalones)
 
@@ -220,7 +256,7 @@ def render_imgpro_tab():
             st.write("##### Execution Options:")
             col_opt1, col_opt2 = st.columns([1, 1])
             with col_opt1:
-                out_var_name = st.text_input("Output Variable Name", value=f"{selected_var}_filtered" if selected_var else "img_filtered")
+                out_var_name = st.text_input("Output Variable Name", value=f"{target_var}_filtered" if target_var else "img_filtered")
             with col_opt2:
                 copy_on_write = st.checkbox("Copy first (protect original image)", value=True, help="If unchecked, the operation is run in-place modifying the selected variable.")
 
@@ -239,7 +275,7 @@ def render_imgpro_tab():
 
         if btn_gen:
             try:
-                st.session_state.generated_code = args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
+                st.session_state.generated_code = args_to_cmd_line(selected_func, args, copy_on_write, target_var, out_var_name, is_standalone)
             except Exception as gen_err:
                 st.error(f"Failed to generate code: {gen_err}")
 
@@ -271,6 +307,7 @@ def render_imgpro_tab():
                         st.session_state.image_cache[cache_key] = result
                         st.session_state.workspace_vars[var_name] = result
                         st.session_state.processed_image = result
+                        st.session_state.active_var = var_name
 
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     command_line = f"{var_name} = {selected_func}({args_str})"
@@ -301,14 +338,14 @@ def render_imgpro_tab():
                 else:
                     # Prepare object to run on
                     if copy_on_write:
-                        run_obj = img.copy()
+                        run_obj = target_img.copy()
                     else:
-                        run_obj = img
+                        run_obj = target_img
 
                     # Execute
                     func_to_run = getattr(run_obj, selected_func)
                     result, stdout = run_capturing_output(func_to_run, **args)
-                    st.session_state.img_stdout = stdout.strip() # TODO addargs_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
+                    st.session_state.img_stdout = stdout.strip()
 
                     # If result is VxlImg, use it, otherwise use run_obj
                     if isinstance(result, (st.session_state.original_VxlImgU16,
@@ -322,13 +359,14 @@ def render_imgpro_tab():
                     # Save to workspace vars
                     st.session_state.workspace_vars[out_var_name] = output_img
                     st.session_state.processed_image = output_img
+                    st.session_state.active_var = out_var_name
 
                     # Generate Python command line
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     if copy_on_write:
-                        command_line = f"{out_var_name} = {selected_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
+                        command_line = f"{out_var_name} = {target_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
                     else:
-                        command_line = f"{out_var_name} = {selected_var}\n{out_var_name}.{selected_func}({args_str})"
+                        command_line = f"{out_var_name} = {target_var}\n{out_var_name}.{selected_func}({args_str})"
 
                     # Append to history
                     if st.session_state.session_commands:
@@ -387,4 +425,36 @@ def render_imgpro_tab():
                 )
             except Exception as slice_err:
                 st.error(f"Error rendering image slice from memory: {slice_err}")
+
+            if st.session_state.get("img_stdout"):
+                import re
+                from pathlib import Path
+                matches = re.findall(r"[\w/\.-]+\.(?:png|svg)", st.session_state.img_stdout)
+                seen = set()
+                existing_plots = []
+                for match in matches:
+                    clean_path = match.strip("'\" \t\r\n")
+                    if clean_path in seen:
+                        continue
+                    seen.add(clean_path)
+                    p = Path(clean_path)
+                    if not p.is_absolute():
+                        p = Path(workspace_root) / p
+                    if p.exists():
+                        existing_plots.append(p)
+
+                if existing_plots:
+                    st.markdown("---")
+                    st.markdown("##### 📊 Generated Plots/Output Files:")
+                    for plot_path in existing_plots:
+                        st.write(f"**`{plot_path.name}`**")
+                        if plot_path.suffix.lower() == ".svg":
+                            try:
+                                with open(plot_path, "r", encoding="utf-8") as svg_f:
+                                    svg_content = svg_f.read()
+                                st.components.v1.html(svg_content, height=400, scrolling=True)
+                            except Exception as svg_err:
+                                st.error(f"Error reading SVG {plot_path.name}: {svg_err}")
+                        else:
+                            st.image(str(plot_path), use_container_width=True)
 

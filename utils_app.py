@@ -368,12 +368,18 @@ def func_args_from_pybind_doc(doc: str) -> dict:
 
 
 def get_vxlImg_func_args(func_name: str, extra_help=None):
-    """Parse args for a VxlImgU8 method from its pybind11 docstring.
+    """Parse args for a VxlImg method from its pybind11 docstring.
     Returns a dict {"params": [...], "desc": "..."} compatible with CURATED_METHODS.
     Falls back to empty params if parsing fails.
     """
     import image3kit as ik
-    func = getattr(ik.VxlImgU8, func_name, None)
+    func = None
+    for cls_name in ["VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32"]:
+        cls = getattr(ik, cls_name, None)
+        if cls:
+            func = getattr(cls, func_name, None)
+            if func:
+                break
     if not func:
         return {"params": [], "desc": f"Function {func_name} not found.\n\n{extra_help}"}
 
