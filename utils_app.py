@@ -184,7 +184,12 @@ def args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_n
         filename = args["filename"]
         img_type = args["img_type"]
         var_name = args["new_var_name"]
-        cmd_line = f"{var_name} = ik.{img_type}('{filename}')"
+        import os
+        ext = os.path.splitext(filename)[-1].lower()
+        if ext in (".npz", ".npy"):
+            cmd_line = f"{var_name} = loadImg('{filename}', img_type='{img_type}')"
+        else:
+            cmd_line = f"{var_name} = ik.{img_type}('{filename}')"
     elif is_standalone:
         args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
         cmd_line = f"import {selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"

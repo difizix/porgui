@@ -61,7 +61,7 @@ def render_parseargs(params, key_prefix="", num_cols=2):
                     val = st.selectbox(p_name, var_options, index=default_idx, key=widget_key, help=help_text)
                     args_dict[p_name] = val
             elif type_val in ("img_dropdown", "file_dropdown"):
-                extensions = ["*.tif", "*.tiff", "*.am", "*.png", "*.mhd", "*.dat", "*.raw", "*.raw.gz"]
+                extensions = ["*.tif", "*.tiff", "*.am", "*.png", "*.mhd", "*.dat", "*.raw", "*.raw.gz", "*.npy", "*.npz"]
                 found_files = []
                 for ext in extensions:
                     found_files.extend(glob.glob(ext))

@@ -22,7 +22,12 @@ def loadImg(
     img_type: ImageType = "VxlImgU8",
     new_var_name: str = "img",
 ) -> object:
-    """Load an image (.tif, .mhd, .am, .dat, .png) from the runs directory into the workspace."""
+    """Load an image (.tif, .mhd, .am, .dat, .png, .npy, .npz) from the runs directory into the workspace."""
+    import os
+    ext = os.path.splitext(filename)[-1].lower()
+    if ext in (".npz", ".npy"):
+        return readNpy(filename, img_type, new_var_name)
+
     import image3kit as ik
     cls_map = {
         "VxlImgU16": ik.VxlImgU16,
@@ -32,6 +37,71 @@ def loadImg(
     }
     cls = cls_map.get(img_type, ik.VxlImgU16)
     return cls(filename)
+
+
+def readNpy(
+    filename: ImgDropdown,
+    img_type: ImageType = "VxlImgU16",
+    new_var_name: str = "img",
+) -> object:
+    """Load a .npy or .npz file into a VxlImg of appropriate data type.
+
+    The array dtype auto-selects the VxlImg class (img_type is the fallback).
+    2-D arrays are promoted to (nx, ny, 1).
+    """
+    import image3kit as ik
+    import numpy as np
+    import tempfile
+    import os
+
+    ext = os.path.splitext(filename)[-1].lower()
+    if ext == ".npz":
+        npz = np.load(filename)
+        keys = list(npz.keys())
+        if not keys:
+            raise ValueError(f"No arrays found in {filename}")
+        arr = npz[keys[0]]
+        if len(keys) > 1:
+            print(f"[readNpy] npz has multiple keys {keys}; using '{keys[0]}'")
+    else:
+        arr = np.load(filename)
+
+    if arr.ndim == 2:
+        arr = arr[:, :, np.newaxis]
+    elif arr.ndim != 3:
+        raise ValueError(f"Expected 2-D or 3-D array, got shape {arr.shape}")
+
+    cls_map = {
+        "VxlImgU16": ik.VxlImgU16,
+        "VxlImgU8":  ik.VxlImgU8,
+        "VxlImgI32": ik.VxlImgI32,
+        "VxlImgF32": ik.VxlImgF32,
+    }
+    dtype_map = {
+        np.dtype("uint8"):   ik.VxlImgU8,
+        np.dtype("uint16"):  ik.VxlImgU16,
+        np.dtype("int32"):   ik.VxlImgI32,
+        np.dtype("float32"): ik.VxlImgF32,
+        np.dtype("float64"): ik.VxlImgF32,
+    }
+    cls = dtype_map.get(arr.dtype, cls_map.get(img_type, ik.VxlImgU16))
+
+    cls_to_dtype = {
+        ik.VxlImgU8:   np.uint8,
+        ik.VxlImgU16:  np.uint16,
+        ik.VxlImgI32:  np.int32,
+        ik.VxlImgF32:  np.float32,
+    }
+    target_dtype = cls_to_dtype.get(cls, np.uint16)
+    if arr.dtype != target_dtype:
+        arr = arr.astype(target_dtype)
+
+    # Construct the image directly in memory with the array shape,
+    # specifying 'shape' explicitly to avoid pybind11 overloading conflicts,
+    # then copy the numpy array values into the writeable .data view.
+    img = cls(shape=arr.shape)
+    img.data[:] = arr
+    return img
 
 
 def mextract(
