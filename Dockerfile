@@ -23,6 +23,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nlohmann-json3-dev \
     && rm -rf /var/lib/apt/lists/*
 
+ENV PIP_ROOT_USER_ACTION=ignore
+
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir numpy scikit-build-core pybind11
 
