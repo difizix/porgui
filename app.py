@@ -32,11 +32,6 @@ st.markdown("""
     code, pre, [class*="stCode"] {
         font-family: 'JetBrains Mono', monospace !important;
     }
-    
-    .stApp {
-        background: linear-gradient(135deg, #0e1117 0%, #161b22 100%);
-        color: #c9d1d9;
-    }
     .stMainBlockContainer {
         padding: 0 1rem 10rem 1rem;
     }
@@ -51,25 +46,19 @@ st.markdown("""
 
     /* Premium card design */
     .card {
-        background-color: #1f242c;
+        background-color: var(--secondary-background-color, #1f242c);
         border-radius: 12px;
         padding: 20px;
-        border: 1px solid #30363d;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        border: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         margin-bottom: 20px;
         transition: all 0.3s ease;
-    }
-    
-    .card:hover {
-        border-color: #58a6ff;
-        box-shadow: 0 4px 25px rgba(88, 166, 255, 0.15);
     }
     
     .card-title {
         font-size: 1.25rem;
         font-weight: 600;
         margin-bottom: 15px;
-        color: #58a6ff;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -77,9 +66,7 @@ st.markdown("""
     
     /* Styling Streamlit buttons to look premium */
     div.stButton > button {
-        background: linear-gradient(180deg, #21262d 0%, #161b22 100%);
-        color: #c9d1d9;
-        border: 1px solid #30363d;
+        border: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
         border-radius: 6px;
         padding: 6px 16px;
         font-weight: 600;
@@ -87,20 +74,11 @@ st.markdown("""
     }
     
     div.stButton > button:hover {
-        color: #ffffff;
-        border-color: #8b949e;
-        background: #30363d;
-    }
-    
-    div.stButton > button:active {
-        background: #21262d;
+        border-color: var(--primary-color, #8b949e);
     }
 
     /* Custom Title Style */
     .title-gradient {
-        background: linear-gradient(90deg, #58a6ff 0%, #bc8cff 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
         font-weight: 700;
         font-size: 2.5rem;
         margin-bottom: 5px;

@@ -2,9 +2,9 @@ help:
 	echo ...
 
 restartPodman:
-	cd ../pods/compose && podman-compose build img3gui
-	cd ../pods/compose && podman-compose stop img3gui pingapsrvr
-	podman rm -f img3gui || true
-	cd ../pods/compose && podman-compose up -d --force-recreate img3gui pingapsrvr
+	cd ../pods/compose && podman-compose build porsmgui
+	cd ../pods/compose && podman-compose stop porsmgui pingapsrvr
+	podman rm -f porsmgui || true
+	cd ../pods/compose && podman-compose up -d --force-recreate porsmgui pingapsrvr
 	podman ps -a
 

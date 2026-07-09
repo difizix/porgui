@@ -187,8 +187,6 @@ def render_imgpro_tab():
                         label_visibility="collapsed"
                     )
                 min_contrast, max_contrast = val_range
-        else:
-            st.info("No image loaded yet. Run a workflow or upload an image to begin.")
 
 
         # 🛠️ Interactive Function Executor Section
@@ -457,4 +455,5 @@ def render_imgpro_tab():
                                 st.error(f"Error reading SVG {plot_path.name}: {svg_err}")
                         else:
                             st.image(str(plot_path), use_container_width=True)
-
+        else:
+            st.info("**No image loaded yet. Run a workflow or upload an image to begin.**")
