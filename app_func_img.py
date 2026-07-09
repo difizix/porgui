@@ -201,12 +201,14 @@ def render_imgpro_tab():
 
         # Get list of functions
         func_options = sorted(list(CURATED_METHODS.keys()))
+        default_func = "loadImg"
+        default_idx = func_options.index(default_func) if default_func in func_options else 0
 
         c1_fn, c2_fn = st.columns([2, 3])
         with c1_fn:
             st.markdown("<div style='padding-top: 6px;'><b>Function to Execute:</b></div>", unsafe_allow_html=True)
         with c2_fn:
-            selected_func = st.selectbox("Function to Execute:", func_options, key="exec_func_sel", label_visibility="collapsed")
+            selected_func = st.selectbox("Function to Execute:", func_options, index=default_idx, key="exec_func_sel", label_visibility="collapsed")
 
         # Display description
         st.markdown(f"**Description**: *{CURATED_METHODS[selected_func]['desc']}*")
