@@ -395,16 +395,24 @@ def get_vxlImg_func_args(func_name: str, extra_help=None):
     """
     import image3kit as ik
     func = None
+    classes_with_func = []
     for cls_name in ["VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32"]:
         cls = getattr(ik, cls_name, None)
         if cls:
-            func = getattr(cls, func_name, None)
-            if func:
-                break
+            f = getattr(cls, func_name, None)
+            if f:
+                classes_with_func.append(cls_name)
+                if not func:
+                    func = f
     if not func:
         return {"params": [], "desc": f"Function {func_name} not found.\n\n{extra_help}"}
 
     ret_dict = func_args_from_pybind_doc(func.__doc__ or "")
+    if len(classes_with_func) > 1:
+        for p in ret_dict["params"]:
+            if p["name"] == "self" or (isinstance(p["type"], str) and any(c in p["type"] for c in classes_with_func)):
+                p["type"] = "VxlImg"
+
     if extra_help:
         ret_dict["desc"] += f"\n\n{extra_help}"
     return ret_dict
