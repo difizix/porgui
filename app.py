@@ -160,6 +160,10 @@ def get_patched_class(original_cls, class_name):
             else:
                 super().__init__(*args, **kwargs)
                 
+        def copy(self):
+            orig_copy = super().copy()
+            return PatchedClass(orig_copy)
+                
     return PatchedClass
 
 ik.VxlImgU16 = get_patched_class(st.session_state.original_VxlImgU16, "VxlImgU16")

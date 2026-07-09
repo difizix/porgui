@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import numpy as np
 import traceback
+import image3kit as ik
 import PIL
 import sys
 
@@ -242,7 +243,16 @@ def render_imgpro_tab():
             col_opt1, col_opt2 = st.columns([1, 1])
             with col_opt1:
                 ref_var = args.get("self") or args.get("image_var") or selected_var
-                out_var_name = st.text_input("Output Variable Name", value=f"{ref_var}_filtered" if ref_var else "img_filtered")
+                default_out_name = f"{ref_var}_filtered" if ref_var else "img_filtered"
+                # Prevent overwriting existing workspace variables by making default name unique
+                if "workspace_vars" in st.session_state:
+                    base_name = default_out_name
+                    if base_name in st.session_state.workspace_vars:
+                        suffix = 1
+                        while f"{base_name}_{suffix}" in st.session_state.workspace_vars:
+                            suffix += 1
+                        default_out_name = f"{base_name}_{suffix}"
+                out_var_name = st.text_input("Output Variable Name", value=default_out_name)
             with col_opt2:
                 copy_on_write = st.checkbox("Copy first (protect original image)", value=True, help="If unchecked, the operation is run in-place modifying the selected variable.")
 
@@ -297,6 +307,7 @@ def render_imgpro_tab():
                         st.session_state.workspace_vars[var_name] = result
                         st.session_state.processed_image = result
                         st.session_state.active_var = var_name
+                        st.session_state.pending_active_var = var_name
 
                     args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
                     command_line = f"{var_name} = {selected_func}({args_str})"
@@ -353,9 +364,20 @@ def render_imgpro_tab():
                                         st.session_state.original_VxlImgU8,
                                         st.session_state.original_VxlImgI32,
                                         st.session_state.original_VxlImgF32)):
-                        output_img = result
+                        raw_img = result
                     else:
-                        output_img = run_obj
+                        raw_img = run_obj
+
+                    # Wrap raw_img in its respective patched wrapper class to ensure consistency
+                    output_img = raw_img
+                    if isinstance(raw_img, st.session_state.original_VxlImgU16) and not isinstance(raw_img, ik.VxlImgU16):
+                        output_img = ik.VxlImgU16(raw_img)
+                    elif isinstance(raw_img, st.session_state.original_VxlImgU8) and not isinstance(raw_img, ik.VxlImgU8):
+                        output_img = ik.VxlImgU8(raw_img)
+                    elif isinstance(raw_img, st.session_state.original_VxlImgI32) and not isinstance(raw_img, ik.VxlImgI32):
+                        output_img = ik.VxlImgI32(raw_img)
+                    elif isinstance(raw_img, st.session_state.original_VxlImgF32) and not isinstance(raw_img, ik.VxlImgF32):
+                        output_img = ik.VxlImgF32(raw_img)
 
                     # Save to workspace vars
                     st.session_state.workspace_vars[out_var_name] = output_img
