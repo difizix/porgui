@@ -16,8 +16,8 @@ from utils_app import get_output_files
 # Set page configuration with a premium wide layout
 st.set_page_config(
     layout="wide",
-    page_title="image3kit Workflow Studio",
-    page_icon="🔬"
+    page_title="PorGUI",
+    page_icon="💠"
 )
 
 # Custom CSS for rich aesthetics (sleek dark theme, clean typography, cards, and animations)
