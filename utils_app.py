@@ -347,6 +347,10 @@ def func_args_from_pybind_doc(doc: str) -> dict:
         py_type = str
         if "bool" in type_str:
             py_type = bool
+        elif "int3" in type_str:
+            py_type = "int3"
+        elif "dbl3" in type_str:
+            py_type = "dbl3"
         elif "int" in type_str or "SupportsInt" in type_str or "SupportsIndex" in type_str:
             py_type = int
         elif "float" in type_str or "SupportsFloat" in type_str:

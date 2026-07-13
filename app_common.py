@@ -51,6 +51,36 @@ def render_parseargs(params, key_prefix="", num_cols=2):
                         val_default = 0.0
                     val = st.number_input(p_name, value=val_default, step=0.1, key=widget_key, help=help_text)
                 args_dict[p_name] = val
+            elif type_val in ("int3", "dbl3"):
+                st.write(f"**{p_name}**")
+                sub_cols = st.columns(3)
+                
+                def_vals = [0, 0, 0]
+                if default is not None:
+                    try:
+                        if isinstance(default, (list, tuple)):
+                            def_vals = [float(x) if type_val == "dbl3" else int(x) for x in default]
+                        elif hasattr(default, "x"):
+                            def_vals = [default.x, default.y, default.z]
+                        else:
+                            import re
+                            nums = re.findall(r"[-+]?\d*\.?\d+", str(default))
+                            if len(nums) == 3:
+                                def_vals = [float(x) if type_val == "dbl3" else int(x) for x in nums]
+                    except Exception:
+                        pass
+                
+                if len(def_vals) < 3:
+                    def_vals = (def_vals + [0, 0, 0])[:3]
+                
+                val_x = sub_cols[0].number_input("X", value=int(def_vals[0]) if type_val == "int3" else float(def_vals[0]), step=1 if type_val == "int3" else 0.1, key=f"{widget_key}_x")
+                val_y = sub_cols[1].number_input("Y", value=int(def_vals[1]) if type_val == "int3" else float(def_vals[1]), step=1 if type_val == "int3" else 0.1, key=f"{widget_key}_y")
+                val_z = sub_cols[2].number_input("Z", value=int(def_vals[2]) if type_val == "int3" else float(def_vals[2]), step=1 if type_val == "int3" else 0.1, key=f"{widget_key}_z")
+                
+                if type_val == "int3":
+                    args_dict[p_name] = [int(val_x), int(val_y), int(val_z)]
+                else:
+                    args_dict[p_name] = [float(val_x), float(val_y), float(val_z)]
             elif type_val == "var_dropdown" or (isinstance(type_val, str) and any(x in type_val for x in ("VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid"))) or (inspect.isclass(type_val) and any(x in type_val.__name__ for x in ("VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid"))):
                 # Figure out the target type name as a string
                 target_type_str = ""
