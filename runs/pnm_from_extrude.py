@@ -17,9 +17,9 @@ os.chdir("tpakextr")
 
 img = ik.VxlImgU8(img_path)
 for _ in range(2):
-    img.growLabel(0)
-img.voxelSize = (5.0e-6, 5.0e-6, 5.0e-6)
-img.distMapExtrude(offset=0.5, scale=2.0)
+    img.grow_label(0)
+img.spacing = (5.0e-6, 5.0e-6, 5.0e-6)
+img.extrude_dist_map(offset=0.5, scale=2.0)
 img.write(f"extruded_{img.nx}x{img.ny}x{img.nz}_5p0um.raw.gz")
 
 
@@ -57,4 +57,4 @@ for filepath in glob.glob("extruded_pores_*.raw.gz") + glob.glob("extruded_throa
     print(f"Reading and plotting {filepath} ...")
     raw_img = ik.VxlImgI32(filepath)
     base_name = filepath[:-7] if filepath.endswith(".raw.gz") else filepath
-    raw_img.plotAll(f"{base_name}_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
+    raw_img.plot_all(f"{base_name}_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)

@@ -13,7 +13,7 @@ assert ik.__version__ >= "0.0.2", (
 
 
 def plotAll_save(img: ik.VxlImgU16, filename, save=True):
-    img.plotAll(f"{filename}_", grey=False, min_val=3000, max_val=13500)
+    img.plot_all(f"{filename}_", grey=False, min_val=3000, max_val=13500)
     if save:
         img.write(f"{filename}.raw")  # it adds a .mhd header too
 
@@ -32,8 +32,8 @@ def desharpen(
 
     vsh = img.copy()
     vsm = img.copy()
-    vsh.bilateralX(kernel_radius=kernel_radius, x_step=steps, sigma_val=sigma_sh, sharpness=sharpness_sh)
-    vsm.bilateralX(kernel_radius=kernel_radius+1, x_step=steps, sigma_val=sigma_sm, sharpness=sharpness_sm)
+    vsh.bilateral_wide(kernel_radius=kernel_radius, x_step=steps, sigma_val=sigma_sh, sharpness=sharpness_sh)
+    vsm.bilateral_wide(kernel_radius=kernel_radius+1, x_step=steps, sigma_val=sigma_sm, sharpness=sharpness_sm)
     vsh.data[:] = (vsh.data+10000) - vsm.data
     delAvg = (vsm.data.astype(np.int32) - vsh.data.astype(np.int32)).mean()  # to avoid changing image brightness
     # convert to int32, substract the difference and convert back to uint16, to avoid overflow
@@ -44,7 +44,7 @@ def desharpen(
 
 def medianZ_iterate(img: ik.VxlImgU16, n_iter):
     for _ in range(n_iter):
-        img.medianZ()
+        img.median_z()
 
 
 if __name__ == "__main__":
@@ -57,12 +57,12 @@ if __name__ == "__main__":
 
     img = ik.VxlImgU16(filename)
 
-    img.cropD((0,0,300), (467,1775,580)) # crop during testing phase for speed!
+    img.crop((0,0,300), (467,1775,580)) # crop during testing phase for speed!
 
     plotAll_save(img, filename="volu_original", save=False)
 
     medianZ_iterate(img, 5)
-    img.medianFilter()
+    img.median_filter()
     plotAll_save(img, filename="volu_median")
 
     """Remove excessive sharpening artefacts whcih were probabbly added during image reconstruction"""
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     """Image segmentation, does not work well TODO document..."""
     img.segment2(thresholds=[0, 6000, 65535], min_sizes=[1, 3])
     plotAll_save(img, filename="volu_seg", save=False)
-    img.write8bit("volu_seg.raw.gz", min=0, max=25500)
+    img.write_8bit("volu_seg.raw.gz", min=0, max=25500)
 
 # if 1: # convert to 8bit and paint over segmentation artefacts
     img = ik.VxlImgU8("volu_seg.mhd")
@@ -107,11 +107,11 @@ if __name__ == "__main__":
     """Paint over segmentation artefacts with a dummy value(=mean*2), the artefact is in the bottom-left"""
     # img.setOrigin((0,0,0))
     # img.setVoxelSize((1,1,1))
-    dx, dy, dz = img.voxelSize()
-    nx, ny, nz = img.shape()
+    dx, dy, dz = img.spacing
+    nx, ny, nz = img.shape
     img.paint(ik.cube(p1=(0, dy*(ny-50), 0), size=(50*dx, 50*dy, nz*dz+10000), val=231))
 
-    img.write8bit("volu_seg01.raw.gz")
+    img.write_8bit("volu_seg01.raw.gz")
 
 
 #  if 1: Not finished, merge segmentation with that obtained from simple thresholding ?
@@ -121,6 +121,6 @@ if __name__ == "__main__":
     #  im3 = img.copy()
     #  im3.shrink1()
 
-    #  im2.XOR(im3)
+    #  im2.xor_(im3)
 
-    #  img.mapFrom(im2)
+    #  img.map_from(im2)

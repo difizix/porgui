@@ -82,9 +82,9 @@ if __name__ == "__main__":
     # Read 3d image
     # Tested against https://web.corral.tacc.utexas.edu/digitalporousmedia/DRP-384/Porous%20carbonate/Porous%20carbonate/Dry.tif
     img = ik.VxlImgU16(filename)
-    #  img.cropD((0,0,100), (0,0,800))
-    #  img.plotAll("plot_drp384")
-    #  img.circleOut(img.nx//2, img.ny//2, 450, 'z', 20000)
+    #  img.crop((0,0,100), (0,0,800))
+    #  img.plot_all("plot_drp384")
+    #  img.circle_out(img.nx//2, img.ny//2, 450, 'z', 20000)
     #  plot_img3(img, threshold=16000, filename='screenshot.png')
 
     plot_img3_contour_to_png(img, threshold=16000, filename="screenshot.png")

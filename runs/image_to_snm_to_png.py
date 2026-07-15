@@ -24,9 +24,9 @@ def main():
     
     img = ik.VxlImgU8(img_name)
     for _ in range(2):
-        img.growLabel(0)
-    img.voxelSize = (1e-6, 1e-6, 1e-6)
-    img.distMapExtrude(offset=0.5, scale=2.0)
+        img.grow_label(0)
+    img.spacing = (1e-6, 1e-6, 1e-6)
+    img.extrude_dist_map(offset=0.5, scale=2.0)
     
     extruded_name = f"TPak2DExtruded_{img.nx}x{img.ny}x{img.nz}_5p0um"
     print(f"Writing extruded image to {extruded_name}.raw...")

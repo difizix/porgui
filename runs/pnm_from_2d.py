@@ -22,13 +22,13 @@ os.chdir("tpak2d")
 img = ik.VxlImgU8(img_path)
 
 img.threshold101(1, 255) # asigns 0 to void
-img.printInfo()
+img.print_info()
 print(img)
 # for _ in range(2):
-#     img.growLabel(0)
-img.voxelSize = (3.28e-6, 3.28e-6, 3.28e-6)
+#     img.grow_label(0)
+img.spacing = (3.28e-6, 3.28e-6, 3.28e-6)
 
-img.plotAll("netfrom2d_original_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
+img.plot_all("netfrom2d_original_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
 
 # Do not extrude, here we want to test network extraction from a 2D image
 # img.distMapExtrude(offset=0.5, scale=2.0)
@@ -74,7 +74,7 @@ for filepath in glob.glob("netfrom2d_pores_*.raw.gz") + glob.glob("netfrom2d_thr
     print(f"Reading and plotting {filepath} ...")
     raw_img = ik.VxlImgI32(filepath)
     base_name = filepath[:-7] if filepath.endswith(".raw.gz") else filepath
-    raw_img.plotAll(f"{base_name}_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
+    raw_img.plot_all(f"{base_name}_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
 
     if sum_img is None:
         sum_img = ik.VxlImgI32(raw_img) # raw_img.copy()
@@ -82,5 +82,5 @@ for filepath in glob.glob("netfrom2d_pores_*.raw.gz") + glob.glob("netfrom2d_thr
         assert raw_img.shape == sum_img.shape, f"Shape mismatch: {filepath}.shape={raw_img.shape} != sum_img.shape={sum_img.shape}"
         sum_img += raw_img
 
-sum_img.plotAll("netfrom2d_both_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
+sum_img.plot_all("netfrom2d_both_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
 print(sum_img)

@@ -4,7 +4,7 @@ import sys
 from stpyvista import stpyvista
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_xdmf_func_args, run_capturing_output, FormParam
-from app_common import render_parseargs
+from app_common import render_parseargs, resolve_object_args
 from user_funcs import loadXmf, makeNetworkTubes, mextract, snflow, renderPNMXmf
 
 # Ensure workspace root is in sys.path
@@ -236,6 +236,10 @@ def render_pnm_tab():
                     if run_obj is None:
                         st.error("No target network object available to execute method on.")
                         st.stop()
+
+                    # Resolve any remaining object-typed args from workspace variable
+                    # names to actual objects (or None)
+                    args = resolve_object_args(args, params_meta, st.session_state.workspace_vars)
 
                     func_to_run = getattr(run_obj, selected_func)
                     result, stdout = run_capturing_output(func_to_run, **args)

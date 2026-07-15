@@ -22,13 +22,13 @@ os.chdir("tpak2e")
 img = ik.VxlImgU8(img_path)
 
 img.threshold101(1, 255) # asigns 0 to void
-img.printInfo()
+img.print_info()
 print(img)
 # for _ in range(2):
-#     img.growLabel(0)
-img.voxelSize = (3.28e-6, 3.28e-6, 3.28e-6)
+#     img.grow_label(0)
+img.spacing = (3.28e-6, 3.28e-6, 3.28e-6)
 
-img.plotAll("netfrom2d_original_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
+img.plot_all("netfrom2d_original_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
 
 # Do not extrude, here we want to test network extraction from a 2D image
 # img.distMapExtrude(offset=0.5, scale=2.0)
@@ -48,7 +48,7 @@ ElementNumberOfChannels = 1
 CompressedData = True
 HeaderSize = 0
 DimSize =    	{img.nx}	{img.ny}	{img.nz}
-ElementSize = 	{img.voxelSize[0]}	{img.voxelSize[1]}	{img.voxelSize[2]}
+ElementSize = 	{img.spacing[0]}	{img.spacing[1]}	{img.spacing[2]}
 Offset =      	0   	0   	0
 ElementDataFile = netfrom2d.raw.gz
 
@@ -96,10 +96,10 @@ sum_img = None
 for filepath in glob.glob("netfrom2d_poreMBs*.raw.gz") + glob.glob("netfrom2d_throats_*.raw.gz"):
     print(f"Reading and plotting {filepath} ...")
     raw_img = ik.VxlImgI32(shape=img.shape)
-    raw_img.readBin(filepath)
-    raw_img.voxelSize = img.voxelSize
+    raw_img.read_bin(filepath)
+    raw_img.spacing = img.spacing
     base_name = filepath[:-7] if filepath.endswith(".raw.gz") else filepath
-    raw_img.plotAll(f"{base_name}_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
+    raw_img.plot_all(f"{base_name}_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
 
     if sum_img is None:
         sum_img = ik.VxlImgI32(raw_img) # raw_img.copy()
@@ -107,6 +107,6 @@ for filepath in glob.glob("netfrom2d_poreMBs*.raw.gz") + glob.glob("netfrom2d_th
         assert raw_img.shape == sum_img.shape, f"Shape mismatch: {filepath}.shape={raw_img.shape} != sum_img.shape={sum_img.shape}"
         sum_img += raw_img
 
-sum_img.plotAll("netfrom2d_both_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
+sum_img.plot_all("netfrom2d_both_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)
 print(sum_img)
 

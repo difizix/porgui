@@ -3,6 +3,33 @@ import streamlit as st
 import os
 import glob
 
+OBJECT_DROPDOWN_TYPE_NAMES = ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid")
+
+NONE_OPTION = "(none)"
+
+def is_object_dropdown_type(type_val):
+    if type_val == "var_dropdown":
+        return True
+    if isinstance(type_val, str):
+        return any(x in type_val for x in OBJECT_DROPDOWN_TYPE_NAMES)
+    if inspect.isclass(type_val):
+        return any(x in type_val.__name__ for x in OBJECT_DROPDOWN_TYPE_NAMES)
+    return False
+
+def resolve_object_args(args_dict, params_meta, workspace_vars):
+    for p in params_meta:
+        p_name = p["name"]
+        if p_name == "self" or p_name not in args_dict:
+            continue
+        if is_object_dropdown_type(p["type"]):
+            val = args_dict[p_name]
+            if val:
+                args_dict[p_name] = workspace_vars.get(val)
+            else:
+                # "(none)" was selected: omit the kwarg so the bound function's own default applies
+                del args_dict[p_name]
+    return args_dict
+
 def render_parseargs(params, key_prefix="", num_cols=2):
     args_dict = {}
     if not params:
@@ -81,17 +108,17 @@ def render_parseargs(params, key_prefix="", num_cols=2):
                     args_dict[p_name] = [int(val_x), int(val_y), int(val_z)]
                 else:
                     args_dict[p_name] = [float(val_x), float(val_y), float(val_z)]
-            elif type_val == "var_dropdown" or (isinstance(type_val, str) and any(x in type_val for x in ("VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid"))) or (inspect.isclass(type_val) and any(x in type_val.__name__ for x in ("VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid"))):
+            elif is_object_dropdown_type(type_val):
                 # Figure out the target type name as a string
                 target_type_str = ""
                 if isinstance(type_val, str):
-                    for possible in ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid"):
+                    for possible in OBJECT_DROPDOWN_TYPE_NAMES:
                         if possible in type_val:
                             target_type_str = possible
                             break
                 elif inspect.isclass(type_val):
                     name = type_val.__name__
-                    for possible in ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid"):
+                    for possible in OBJECT_DROPDOWN_TYPE_NAMES:
                         if possible in name:
                             target_type_str = possible
                             break
@@ -124,12 +151,16 @@ def render_parseargs(params, key_prefix="", num_cols=2):
                     else:
                         var_options.append(k)
 
+                is_optional = p_name != "self" and default is None
+                if is_optional:
+                    var_options = [NONE_OPTION] + var_options
+
                 if not var_options:
                     st.warning(f"No compatible variables of type '{target_type_str or 'any'}' found in workspace.")
                     args_dict[p_name] = ""
                 else:
                     # Choose default
-                    default_sel = default
+                    default_sel = NONE_OPTION if is_optional else default
                     if default_sel not in var_options:
                         active_var = st.session_state.get("active_var")
                         net_active = st.session_state.get("net_active_var_selectbox")
@@ -141,7 +172,7 @@ def render_parseargs(params, key_prefix="", num_cols=2):
                             default_sel = var_options[0]
                     default_idx = var_options.index(default_sel)
                     val = st.selectbox(p_name, var_options, index=default_idx, key=widget_key, help=help_text)
-                    args_dict[p_name] = val
+                    args_dict[p_name] = "" if val == NONE_OPTION else val
             elif type_val in ("img_dropdown", "file_dropdown"):
                 extensions = ["*.tif", "*.tiff", "*.am", "*.png", "*.mhd", "*.dat", "*.raw", "*.raw.gz", "*.npy", "*.npz"]
                 found_files = []

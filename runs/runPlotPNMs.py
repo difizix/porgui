@@ -31,9 +31,9 @@ def runPlotPNMs(tmp_path, mtd):
     # We follow the pattern in test_snflow_2d.py
     img = ik.VxlImgU8(img_path)
     for _ in range(2):
-        img.growLabel(0)
-    img.voxelSize = (1e-6, 1e-6, 1e-6)
-    img.distMapExtrude(offset=0.5, scale=2.0)
+        img.grow_label(0)
+    img.spacing = (1e-6, 1e-6, 1e-6)
+    img.extrude_dist_map(offset=0.5, scale=2.0)
     img_name = f"TPak2DExtruded_{img.nx}x{img.ny}x{img.nz}_5p0um"
     img.write(f"{img_name}.raw")
 
