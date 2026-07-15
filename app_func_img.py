@@ -8,7 +8,7 @@ import sys
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args, run_capturing_output, FormParam
 from app_common import render_parseargs, resolve_object_args
-from user_funcs import loadImg, mextract, snflow
+from user_funcs import read_image, mextract, snflow
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,7 +23,7 @@ STANDALONE_FUNCTIONS = {
 }
 
 PYTHON_FUNCTIONS = {
-    "loadImg": loadImg,
+    "read_image": read_image,
     "mextract": mextract,
     "snflow": snflow,
 }
@@ -143,6 +143,9 @@ def render_imgpro_tab():
         pending = st.session_state.pop("pending_active_var")
         st.session_state.active_var = pending
         st.session_state.active_var_selectbox_widget = pending
+
+
+
 
     if "generated_code" not in st.session_state:
         st.session_state.generated_code = None
@@ -274,7 +277,7 @@ def render_imgpro_tab():
 
         # Get list of functions
         func_options = sorted(list(CURATED_METHODS.keys()))
-        default_func = "loadImg"
+        default_func = "read_image"
         default_idx = func_options.index(default_func) if default_func in func_options else 0
 
         c1_fn, c2_fn = st.columns([2, 3])
@@ -367,13 +370,31 @@ def render_imgpro_tab():
                     result, stdout = run_capturing_output(func_to_call, **args)
                     st.session_state.img_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
 
-                    is_vxl = isinstance(result, (
-                        st.session_state.original_VxlImgU16,
-                        st.session_state.original_VxlImgU8,
-                        st.session_state.original_VxlImgI32,
-                        st.session_state.original_VxlImgF32,
-                    ))
+                    is_vxl = (
+                        isinstance(result, (
+                            st.session_state.original_VxlImgU16,
+                            st.session_state.original_VxlImgU8,
+                            st.session_state.original_VxlImgI32,
+                            st.session_state.original_VxlImgF32,
+                            ik.VxlImgU16,
+                            ik.VxlImgU8,
+                            ik.VxlImgI32,
+                            ik.VxlImgF32,
+                        )) or (result is not None and "VxlImg" in type(result).__name__)
+                    )
                     if is_vxl:
+                        raw_img = result
+                        output_img = raw_img
+                        if "U16" in type(raw_img).__name__ and not isinstance(raw_img, ik.VxlImgU16):
+                            output_img = ik.VxlImgU16(raw_img)
+                        elif "U8" in type(raw_img).__name__ and not isinstance(raw_img, ik.VxlImgU8):
+                            output_img = ik.VxlImgU8(raw_img)
+                        elif "I32" in type(raw_img).__name__ and not isinstance(raw_img, ik.VxlImgI32):
+                            output_img = ik.VxlImgI32(raw_img)
+                        elif "F32" in type(raw_img).__name__ and not isinstance(raw_img, ik.VxlImgF32):
+                            output_img = ik.VxlImgF32(raw_img)
+
+                        result = output_img
                         cache_key = f"{type(result).__name__}_{os.path.abspath(filename)}"
                         st.session_state.image_cache[cache_key] = result
                         st.session_state.workspace_vars[var_name] = result

@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
 import tempfile
 import image3kit as ik
-from user_funcs import loadImg
+from user_funcs import read_image
 
 DAT_FILE = "runs/TPak2D_240x200x1_5um.dat"
 
@@ -27,10 +27,10 @@ def test_roundtrip():
         # --- Step 2: save img.data as .npy ---
         np.save(npy_path, arr_orig)
 
-        # --- Step 3: reload via loadImg (redirects to readNpy) ---
-        rec = loadImg(npy_path, img_type="VxlImgU16")
+        # --- Step 3: reload via read_image (redirects to _readNpy) ---
+        rec = read_image(npy_path)
         arr_rec = rec.data
-        print(f"loadImg:  nx={rec.nx}  ny={rec.ny}  nz={rec.nz}  dtype={arr_rec.dtype}  sum={arr_rec.sum()}")
+        print(f"read_image: nx={rec.nx}  ny={rec.ny}  nz={rec.nz}  dtype={arr_rec.dtype}  sum={arr_rec.sum()}")
 
         # --- Step 4: assertions ---
         assert arr_rec.dtype == arr_orig.dtype, \

@@ -17,36 +17,27 @@ VarDropdown  = Annotated[str, "var_dropdown"]    # renders a workspace variable 
 # Python functions — fully annotated, called directly with **kwargs.
 # Add new utility functions here; they will appear in the UI automatically.
 # ---------------------------------------------------------------------------
-def loadImg(
+def read_image(
     filename: ImgDropdown,
-    img_type: ImageType = "VxlImgU8",
     new_var_name: str = "img",
 ) -> object:
     """Load an image (.tif, .mhd, .am, .dat, .png, .npy, .npz) from the runs directory into the workspace."""
     import os
     ext = os.path.splitext(filename)[-1].lower()
     if ext in (".npz", ".npy"):
-        return readNpy(filename, img_type, new_var_name)
+        return _readNpy(filename, new_var_name)
 
     import image3kit as ik
-    cls_map = {
-        "VxlImgU16": ik.VxlImgU16,
-        "VxlImgU8":  ik.VxlImgU8,
-        "VxlImgI32": ik.VxlImgI32,
-        "VxlImgF32": ik.VxlImgF32,
-    }
-    cls = cls_map.get(img_type, ik.VxlImgU16)
-    return cls(filename)
+    return ik.read_image(filename)
 
 
-def readNpy(
+def _readNpy(
     filename: ImgDropdown,
-    img_type: ImageType = "VxlImgU16",
     new_var_name: str = "img",
 ) -> object:
     """Load a .npy or .npz file into a VxlImg of appropriate data type.
 
-    The array dtype auto-selects the VxlImg class (img_type is the fallback).
+    The array dtype auto-selects the VxlImg class.
     2-D arrays are promoted to (nx, ny, 1).
     """
     import image3kit as ik
@@ -62,7 +53,7 @@ def readNpy(
             raise ValueError(f"No arrays found in {filename}")
         arr = npz[keys[0]]
         if len(keys) > 1:
-            print(f"[readNpy] npz has multiple keys {keys}; using '{keys[0]}'")
+            print(f"[_readNpy] npz has multiple keys {keys}; using '{keys[0]}'")
     else:
         arr = np.load(filename)
 
@@ -71,12 +62,6 @@ def readNpy(
     elif arr.ndim != 3:
         raise ValueError(f"Expected 2-D or 3-D array, got shape {arr.shape}")
 
-    cls_map = {
-        "VxlImgU16": ik.VxlImgU16,
-        "VxlImgU8":  ik.VxlImgU8,
-        "VxlImgI32": ik.VxlImgI32,
-        "VxlImgF32": ik.VxlImgF32,
-    }
     dtype_map = {
         np.dtype("uint8"):   ik.VxlImgU8,
         np.dtype("uint16"):  ik.VxlImgU16,
@@ -84,7 +69,7 @@ def readNpy(
         np.dtype("float32"): ik.VxlImgF32,
         np.dtype("float64"): ik.VxlImgF32,
     }
-    cls = dtype_map.get(arr.dtype, cls_map.get(img_type, ik.VxlImgU16))
+    cls = dtype_map.get(arr.dtype, ik.VxlImgU16)
 
     cls_to_dtype = {
         ik.VxlImgU8:   np.uint8,
