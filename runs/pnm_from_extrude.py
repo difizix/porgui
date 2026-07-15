@@ -7,13 +7,13 @@ import image3kit as ik
 import pnmkit as nm
 
 # Setup paths
-img_name = sys.argv[1] if len(sys.argv)>1 else "TPak2D_240x200x1_5um.dat"
+img_name = sys.argv[1] if len(sys.argv)>1 else "Pak2D_240x200x1_5um.dat"
 img_path = Path(__file__).resolve().parent / img_name
 
 assert img_path.exists(), f"Image {img_path} not found"
 
-Path("tpakextr").mkdir(exist_ok=True)
-os.chdir("tpakextr")
+Path("pakextr").mkdir(exist_ok=True)
+os.chdir("pakextr")
 
 img = ik.VxlImgU8(img_path)
 for _ in range(2):

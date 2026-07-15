@@ -8,19 +8,19 @@ from pnmkit.msmodels import (
     FlowSim,
     VoxImg,
     getColorGradxy,
-    mSN,
-    mXP,
-    plKr,
-    plPc,
-    plRI,
-    pSgr,
+    mSN,  # snm wrapper
+    mXP,  # xpm wrapper
+    plKr, # property: Kr
+    plPc, # property: Pc
+    plRI, # property: RI
+    pSgr, # property: Sgr
 )
 from pnmkit.msplots import plotCycls, plotPropsCompact, plotSiSr
 
 
 def runPlotPNMs(tmp_path, mtd):
     # Setup paths
-    img_name = "TPak2D_240x200x1_5um.dat"
+    img_name = "Pak2D_240x200x1_5um.dat"
     img_path = Path(__file__).resolve().parent / img_name
 
     assert img_path.exists(), f"Image {img_path} not found"
@@ -34,7 +34,7 @@ def runPlotPNMs(tmp_path, mtd):
         img.grow_label(0)
     img.spacing = (1e-6, 1e-6, 1e-6)
     img.extrude_dist_map(offset=0.5, scale=2.0)
-    img_name = f"TPak2DExtruded_{img.nx}x{img.ny}x{img.nz}_5p0um"
+    img_name = f"Pak2DExtruded_{img.nx}x{img.ny}x{img.nz}_5p0um"
     img.write(f"{img_name}.raw")
 
     extract_params = {"OutputName": img_name, "Overwrite": "T", "VoidRange": "0 0"}

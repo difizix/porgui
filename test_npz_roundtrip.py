@@ -11,7 +11,7 @@ import tempfile
 import image3kit as ik
 from user_funcs import read_image
 
-DAT_FILE = "runs/TPak2D_240x200x1_5um.dat"
+DAT_FILE = "runs/Pak2D_240x200x1_5um.dat"
 
 
 def test_roundtrip():

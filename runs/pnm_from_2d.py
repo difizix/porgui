@@ -15,9 +15,9 @@ img_path = Path(__file__).resolve().parent / img_name
 
 assert img_path.exists(), f"Image {img_path} not found"
 
-shutil.rmtree("tpak2d", ignore_errors=True)
-Path("tpak2d").mkdir(exist_ok=True)
-os.chdir("tpak2d")
+shutil.rmtree("pak2d", ignore_errors=True)
+Path("pak2d").mkdir(exist_ok=True)
+os.chdir("pak2d")
 
 img = ik.VxlImgU8(img_path)
 
@@ -32,7 +32,7 @@ img.plot_all("netfrom2d_original_", color=False, min_val=0, max_val=1, normal_ax
 
 # Do not extrude, here we want to test network extraction from a 2D image
 # img.distMapExtrude(offset=0.5, scale=2.0)
-# imgextrude_name = f"TPak2DExtruded_{img.nx}x{img.ny}x{img.nz}_5p0um"
+# imgextrude_name = f"Pak2DExtruded_{img.nx}x{img.ny}x{img.nz}_5p0um"
 # img.write(f"{imgextrude_name}.raw")
 
 

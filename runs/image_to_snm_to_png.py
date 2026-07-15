@@ -19,7 +19,7 @@ from img3gui.utils_app import STANDALONE_FUNCTIONS
 
 def main():
     os.chdir(run_dir)
-    img_name = sys.argv[-1] if len(sys.argv)>1 else "TPak2D_240x200x1_5um.dat"
+    img_name = sys.argv[-1] if len(sys.argv)>1 else "Pak2D_240x200x1_5um.dat"
     print(f"Loading image {img_name}...")
     
     img = ik.VxlImgU8(img_name)
@@ -28,7 +28,7 @@ def main():
     img.spacing = (1e-6, 1e-6, 1e-6)
     img.extrude_dist_map(offset=0.5, scale=2.0)
     
-    extruded_name = f"TPak2DExtruded_{img.nx}x{img.ny}x{img.nz}_5p0um"
+    extruded_name = f"Pak2DExtruded_{img.nx}x{img.ny}x{img.nz}_5p0um"
     print(f"Writing extruded image to {extruded_name}.raw...")
     img.write(f"{extruded_name}.raw")
     
