@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-graph-dev \
     libfmt-dev \
     nlohmann-json3-dev \
+    libblas-dev \
+    liblapack-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PIP_ROOT_USER_ACTION=ignore
@@ -45,19 +47,28 @@ RUN pip install --no-cache-dir \
     stpyvista
 
 
-# To be removed once pnmkit is stable
-# RUN git clone https://github.com/difizix/pnmkit.git pnmkit
-COPY pnmkit /app/pnmkit
-RUN pip install --no-cache-dir ./pnmkit/image3kit --config-settings=cmake.build-type=Release
-RUN pip install --no-cache-dir ./pnmkit --config-settings=cmake.build-type=Release
+
+COPY image3kit /app/image3kit
+RUN pip install --no-cache-dir ./image3kit --config-settings=cmake.build-type=Release
 
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# To be removed once pyvtk is stable
-# RUN git clone https://github.com/difizix/pyvtk.git pyvtk
-COPY pyvtk /app/pyvtk
-RUN pip install --no-cache-dir ./pyvtk --config-settings=cmake.build-type=Release
+# Build and install snm and xpm standalone executables
+COPY snm /app/snm
+RUN cmake -S /app/snm -B /app/snm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake --build /app/snm/build -j$(nproc) && \
+    cmake --install /app/snm/build
+
+COPY xpm /app/xpm
+RUN cmake -S /app/xpm -B /app/xpm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake --build /app/xpm/build -j$(nproc) && \
+    cmake --install /app/xpm/build
+
+# To be removed once pnmkit is stable
+# RUN git clone https://github.com/difizix/pnmkit.git pnmkit
+COPY pnmkit /app/pnmkit
+RUN pip install --no-cache-dir ./pnmkit --config-settings=cmake.build-type=Release
 
 COPY . /app
 

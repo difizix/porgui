@@ -3,9 +3,9 @@ import os
 import sys
 from stpyvista import stpyvista
 
-from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_xdmf_func_args, run_capturing_output, FormParam
+from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, run_capturing_output, FormParam
 from app_common import render_parseargs, resolve_object_args
-from user_funcs import loadXmf, makeNetworkTubes, mextract, snflow, renderPNMXmf
+from user_funcs import makeNetworkTubes, mextract, snflow, renderPNMXmf
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,17 +19,13 @@ STANDALONE_FUNCTIONS = {
 }
 
 PYTHON_FUNCTIONS = {
-    "loadXmf": loadXmf,
     "makeNetworkTubes": makeNetworkTubes,
     "renderPNMXmf": renderPNMXmf,
     "mextract": mextract,
     "snflow": snflow,
 }
 
-CURATED_METHODS = {
-    "writeAll": get_xdmf_func_args("writeAll", "Write the network to a file."),
-    "readXmf": get_xdmf_func_args("readXmf", "Read the network from a file."),
-}
+CURATED_METHODS = {}
 
 for _sf_name, _sf_tuple in STANDALONE_FUNCTIONS.items():
     try:
@@ -68,9 +64,8 @@ def render_pnm_tab():
 
     with col_v_ctrl:
         # Filter workspace_vars to find potential networks
-        import pnmkit as nm
         import pyvista as pv
-        net_types = (nm.Xdmf, nm.Xdml, pv.PolyData, pv.UnstructuredGrid)
+        net_types = (pv.PolyData, pv.UnstructuredGrid)
         var_options = [k for k, v in st.session_state.workspace_vars.items() if isinstance(v, net_types)]
         if var_options:
             c1, c2 = st.columns([2, 3])
@@ -91,8 +86,8 @@ def render_pnm_tab():
                     with open(temp_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
                     try:
-                        import pnmkit as nm
-                        loaded_obj = nm.Xdml(temp_path)
+                        import pyvista as pv
+                        loaded_obj = pv.read(temp_path, force_ext='.xdmf')
                         st.session_state.workspace_vars[new_var_name] = loaded_obj
                         st.session_state.net_filenames[new_var_name] = temp_path
                         st.success(f"Loaded {uploaded_file.name} as `{new_var_name}`!")
@@ -190,9 +185,8 @@ def render_pnm_tab():
                     result, stdout = run_capturing_output(func_to_call, **args)
                     st.session_state.net_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
 
-                    import pnmkit as nm
                     import pyvista as pv
-                    if isinstance(result, (nm.Xdmf, nm.Xdml, pv.PolyData, pv.UnstructuredGrid)):
+                    if isinstance(result, (pv.PolyData, pv.UnstructuredGrid)):
                         st.session_state.workspace_vars[var_name] = result
                         if filename:
                             st.session_state.net_filenames[var_name] = filename
@@ -222,9 +216,7 @@ def render_pnm_tab():
                     st.session_state.net_success = f"Successfully executed standalone command `{selected_func}`!"
                     st.rerun()
                 else:
-                    if copy_on_write:
-                        st.error("Copy-on-write is not implemented for custom Xdmf objects. Please run in-place.")
-                        st.stop()
+
                     
                     target_var = args.pop("self", None)
                     if target_var:
@@ -288,12 +280,7 @@ def render_pnm_tab():
                 # Already a PyVista mesh (e.g. result of makeNetworkTubes)
                 mesh = val
                 xmf_path = st.session_state.net_filenames.get(selected_var, "Mesh Object")
-            else:
-                # Xdml/Xdmf object — not directly renderable; guide user
-                st.info(
-                    f"**`{selected_var}`** is a network object (pnmkit). "
-                    "Run **makeNetworkTubes** on it to generate a 3D tube mesh for visualization."
-                )
+
 
         if mesh is not None and mesh.n_points > 0:
             display_name = os.path.basename(xmf_path) if xmf_path and xmf_path != "Mesh Object" else selected_var or "Mesh"

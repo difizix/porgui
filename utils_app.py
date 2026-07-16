@@ -363,10 +363,7 @@ def func_args_from_pybind_doc(doc: str) -> dict:
             py_type = "VxlImgF32"
         elif "VxlImg" in type_str:
             py_type = "VxlImg"
-        elif "Xdmf" in type_str:
-            py_type = "Xdmf"
-        elif "Xdml" in type_str:
-            py_type = "Xdml"
+
             
         default_val = None
         if default_str:
@@ -416,19 +413,8 @@ def get_vxlImg_func_args(func_name: str, extra_help=None):
     return ret_dict
 
 def get_xdmf_func_args(func_name: str, extra_help=None):
-    """Parse args for a Xdmf method from its pybind11 docstring.
-    Returns a dict {"params": [...], "desc": "..."} compatible with CURATED_METHODS.
-    Falls back to empty params if parsing fails.
-    """
-    import pnmkit as nm
-    func = getattr(nm.Xdmf, func_name, None)
-    if not func:
-        return {"params": [], "desc": f"Function {func_name} not found.\n\n{extra_help}"}
-
-    ret_dict = func_args_from_pybind_doc(func.__doc__ or "")
-    if extra_help:
-        ret_dict["desc"] += f"\n\n{extra_help}"
-    return ret_dict
+    """Stub to return empty params and description."""
+    return {"params": [], "desc": extra_help or ""}
 
 
 def run_capturing_output(func, *args, **kwargs):

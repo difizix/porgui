@@ -3,7 +3,7 @@ import streamlit as st
 import os
 import glob
 
-OBJECT_DROPDOWN_TYPE_NAMES = ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "Xdmf", "Xdml", "PolyData", "UnstructuredGrid")
+OBJECT_DROPDOWN_TYPE_NAMES = ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "PolyData", "UnstructuredGrid")
 
 NONE_OPTION = "(none)"
 
@@ -146,7 +146,7 @@ def render_parseargs(params, key_prefix="", num_cols=2):
                                     var_options.append(k)
                     elif target_type_str:
                         v_type_name = type(v).__name__
-                        if target_type_str in v_type_name or (target_type_str == "Xdmf" and "Xdml" in v_type_name) or (target_type_str == "Xdml" and "Xdmf" in v_type_name):
+                        if target_type_str in v_type_name:
                             var_options.append(k)
                     else:
                         var_options.append(k)

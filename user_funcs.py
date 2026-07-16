@@ -112,11 +112,11 @@ def mextract(
         "Overwrite": "T" if Overwrite else "F",
         "VoidRange": VoidRange,
     }
-    nm.mextract(img, config, verbose=verbose)
+    nm.mextract(img, config, verbose=verbose) # removed, we shall lunch skelor standalone exe instead
     return f"Extracted network written to {OutputName}_ms.xmf"
 
 
-def snflow(
+def snflow( # We need to define more Anottated type aliases for the space-seperated str args of this function
     NetworkFile: XmfDropdown,
     OutputName: str = "flow_simulation",
     WaterOil: float = 0.05,
@@ -157,19 +157,6 @@ def snflow(
     return f"Simulation completed. Output: {OutputName}_upscal.svg"
 
 
-# ---------------------------------------------------------------------------
-# Python functions — fully annotated, called directly with **kwargs.
-# Add new utility functions here; they will appear in the UI automatically.
-# ---------------------------------------------------------------------------
-def loadXmf(
-    filename: XmfDropdown,
-    new_var_name: str = "network",
-) -> object:
-    """Load an network (.xmf) from the runs directory into the workspace."""
-    import pnmkit as nm
-    return nm.Xdml(filename)
-
-
 def makeNetworkTubes(
     filename: XmfDropdown,
     var_name: str = "radius",
@@ -181,7 +168,7 @@ def makeNetworkTubes(
 
     Handles VTK_QUADRATIC_EDGE cells (type 21) in _pn.xmf files by converting
     them to standard LINE cells before applying the vtkTubeFilter.
-    Mirrors the pipeline in pyvtk/vtkXdmfScreenshot.py using PyVista.
+    Mirrors the pipeline in pnmkit/xdmf_3dl_screenshot.py using PyVista.
     """
     import pyvista as pv
     import numpy as np

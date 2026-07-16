@@ -4,10 +4,10 @@ from pathlib import Path
 
 import image3kit as ik
 import pnmkit as nm
-from pnmkit.msmodels import (
+from pnmkit.models import (
     FlowSim,
     VoxImg,
-    getColorGradxy,
+    get_color_gradxy,
     mSN,  # snm wrapper
     mXP,  # xpm wrapper
     plKr, # property: Kr
@@ -15,7 +15,7 @@ from pnmkit.msmodels import (
     plRI, # property: RI
     pSgr, # property: Sgr
 )
-from pnmkit.msplots import plotCycls, plotPropsCompact, plotSiSr
+from pnmkit.plots import plot_cycls, plot_props_compact, plot_si_sr
 
 
 def runPlotPNMs(tmp_path, mtd):
@@ -60,7 +60,7 @@ def runPlotPNMs(tmp_path, mtd):
         "Overwrite": "T"
     }
 
-    clrSchem = getColorGradxy()
+    clrSchem = get_color_gradxy()
 
     # Simplified CAs and Swis for faster test
     CAs = [[30, 50]]
@@ -88,23 +88,23 @@ def runPlotPNMs(tmp_path, mtd):
 
     # 3. Run Simulation
     for sim in simsAll:
-        ret = sim.runSim("TestThread", forceRun=True) # runXNFlow or runXPM
+        ret = sim.runSim("TestThread", forceRun=True) # run_xnflow or run_xpm
         assert ret == 0, f"Simulation failed for {sim.tag}" # ideally the runSim shall throw an exception instead for debugging
 
     # 4. Plotting & Verification, just checking if the files are created
     pltTag = mtd.name
 
-    plotPropsCompact(simsPc, [plPc], icycls=[1, 2], outfile=f"Test_{pltTag}_PcCmpct.svg", addSummary=False)
+    plot_props_compact(simsPc, [plPc], icycls=[1, 2], outfile=f"Test_{pltTag}_PcCmpct.svg", addSummary=False)
     assert Path(f"Test_{pltTag}_PcCmpct.svg").exists()
 
-    plotPropsCompact(simsPc, [plKr], icycls=[1, 2], outfile=f"Test_{pltTag}_KrCmpct.svg", addSummary=False)
+    plot_props_compact(simsPc, [plKr], icycls=[1, 2], outfile=f"Test_{pltTag}_KrCmpct.svg", addSummary=False)
     assert Path(f"Test_{pltTag}_KrCmpct.svg").exists()
 
-    plotCycls(simsPc, [plPc, plKr, plRI], icycls=[1, 2], outfile=f"Test_{pltTag}_PcKrRI.svg")
+    plot_cycls(simsPc, [plPc, plKr, plRI], icycls=[1, 2], outfile=f"Test_{pltTag}_PcKrRI.svg")
     assert Path(f"Test_{pltTag}_PcKrRI.svg").exists()
 
-    # Test plotSiSr
-    plotSiSr(simsSw, ["CA=30-50"], [pSgr], outfile=f"Test_{pltTag}_SiSr.svg")
+    # Test plot_si_sr
+    plot_si_sr(simsSw, ["CA=30-50"], [pSgr], outfile=f"Test_{pltTag}_SiSr.svg")
     assert Path(f"Test_{pltTag}_SiSr.svg").exists()
 
 

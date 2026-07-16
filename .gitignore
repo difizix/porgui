@@ -1,7 +1,12 @@
 runs/*/
 runs/*.log
+
+# These are temporary, to allow for locally modified versions be bundeled,
+# we can install them from remote repo using pip withought cloning first here
 pnmkit/
-pyvtk/
+image3kit/
+snm/
+xpm/
 
 # user notes
 TODO.md
