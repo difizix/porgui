@@ -5,7 +5,7 @@ from stpyvista import stpyvista
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, run_capturing_output, FormParam
 from app_common import render_parseargs, resolve_object_args
-from user_funcs import makeNetworkTubes, mextract, snflow, renderPNMXmf
+from user_funcs import render_xdmf_tubes, mextract, snflow, render_xdmf_3dl
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,8 +19,8 @@ STANDALONE_FUNCTIONS = {
 }
 
 PYTHON_FUNCTIONS = {
-    "makeNetworkTubes": makeNetworkTubes,
-    "renderPNMXmf": renderPNMXmf,
+    "render_xdmf_tubes": render_xdmf_tubes,
+    "render_xdmf_3dl": render_xdmf_3dl,
     "mextract": mextract,
     "snflow": snflow,
 }
@@ -105,7 +105,7 @@ def render_pnm_tab():
         else:
             func_options = sorted(list(PYTHON_FUNCTIONS.keys()) + available_standalones)
 
-        default_func = "renderPNMXmf"
+        default_func = "render_xdmf_3dl"
         default_idx = func_options.index(default_func) if default_func in func_options else 0
 
         c1_fn, c2_fn = st.columns([2, 3])
@@ -277,7 +277,7 @@ def render_pnm_tab():
         if selected_var:
             val = st.session_state.workspace_vars[selected_var]
             if isinstance(val, (pv.PolyData, pv.UnstructuredGrid)):
-                # Already a PyVista mesh (e.g. result of makeNetworkTubes)
+                # Already a PyVista mesh (e.g. result of render_xdmf_tubes)
                 mesh = val
                 xmf_path = st.session_state.net_filenames.get(selected_var, "Mesh Object")
 
@@ -372,4 +372,4 @@ def render_pnm_tab():
         elif mesh is not None and mesh.n_points == 0:
             st.warning("Generated mesh has zero points — the tube filter may need different parameters (e.g. adjust `xRad` or check the scalar array name).")
         elif not selected_var:
-            st.info("No network variable selected. Load a network file with **loadXmf**, then run **makeNetworkTubes** to visualize it.")
+            st.info("No network variable selected. Load a network file with **loadXmf**, then run **render_xdmf_tubes** to visualize it.")

@@ -157,7 +157,7 @@ def snflow( # We need to define more Anottated type aliases for the space-sepera
     return f"Simulation completed. Output: {OutputName}_upscal.svg"
 
 
-def makeNetworkTubes(
+def render_xdmf_tubes(
     filename: XmfDropdown,
     var_name: str = "radius",
     xRad: float = 0.5,
@@ -173,10 +173,17 @@ def makeNetworkTubes(
     import pyvista as pv
     import numpy as np
 
-    print(f"[makeNetworkTubes] Reading: {filename}")
+    print(f"[render_xdmf_tubes] Reading: {filename}")
     mesh = pv.read(filename, force_ext='.xdmf')
     print(f"  Loaded: {mesh.n_points} points, {mesh.n_cells} cells")
     print(f"  Cell types: {np.unique(mesh.celltypes).tolist()}")
+
+    if str(filename).lower().endswith(("_ms.xmf", "4ds.xmf")):
+        print("  Medial/4D surface file detected. Disabling tube filter and returning raw surface mesh.")
+        if trsh > -1e30:
+            print(f"  Applying threshold {var_name} >= {trsh:.3g} ...")
+            mesh = mesh.threshold(value=trsh, scalars=var_name, preference="point")
+        return mesh
 
     # Auto-detect radius scalar
     avail = list(mesh.point_data.keys()) + list(mesh.cell_data.keys())
@@ -242,7 +249,7 @@ def makeNetworkTubes(
     return tubes
 
 
-def renderPNMXmf(
+def render_xdmf_3dl(
     filename: XmfDropdown,
     pore_scalar: str = "radius",
     throat_scalar: str = "radius",
@@ -258,10 +265,14 @@ def renderPNMXmf(
     import pyvista as pv
     import numpy as np
 
-    print(f"[renderPNMXmf] Reading: {filename}")
+    print(f"[render_xdmf_3dl] Reading: {filename}")
     mesh = pv.read(filename, force_ext='.xdmf')
     print(f"  Loaded: {mesh.n_points} points, {mesh.n_cells} cells")
-    
+
+    if str(filename).lower().endswith(("_ms.xmf", "4ds.xmf")):
+        print("  Medial/4D surface file detected. Disabling sphere/tube generation and returning raw surface mesh.")
+        return mesh
+
     # Auto-detect scalars
     avail_all = list(mesh.point_data.keys()) + list(mesh.cell_data.keys())
     if pore_scalar not in avail_all:
