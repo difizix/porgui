@@ -20,20 +20,22 @@ VarDropdown  = Annotated[str, "var_dropdown"]    # renders a workspace variable 
 def read_image(
     filename: ImgDropdown,
     new_var_name: str = "img",
+    max_nz: int = -1,
 ) -> object:
     """Load an image (.tif, .mhd, .am, .dat, .png, .npy, .npz) from the runs directory into the workspace."""
     import os
     ext = os.path.splitext(filename)[-1].lower()
     if ext in (".npz", ".npy"):
-        return _readNpy(filename, new_var_name)
+        return _readNpy(filename, new_var_name, max_nz=max_nz)
 
     import image3kit as ik
-    return ik.read_image(filename)
+    return ik.read_image(filename, max_nz=max_nz)
 
 
 def _readNpy(
     filename: ImgDropdown,
     new_var_name: str = "img",
+    max_nz: int = -1,
 ) -> object:
     """Load a .npy or .npz file into a VxlImg of appropriate data type.
 
@@ -61,6 +63,9 @@ def _readNpy(
         arr = arr[:, :, np.newaxis]
     elif arr.ndim != 3:
         raise ValueError(f"Expected 2-D or 3-D array, got shape {arr.shape}")
+
+    if max_nz > 0 and arr.shape[2] > max_nz:
+        arr = arr[:, :, :max_nz]
 
     dtype_map = {
         np.dtype("uint8"):   ik.VxlImgU8,

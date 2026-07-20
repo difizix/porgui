@@ -180,22 +180,29 @@ def func_args_from_inspect(func) -> dict:
 
 
 def args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone):
-    if selected_func == "read_image":
-        filename = args["filename"]
-        var_name = args["new_var_name"]
-        cmd_line = f"{var_name} = read_image('{filename}')"
-    elif is_standalone:
+    if is_standalone:
         args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
         cmd_line = f"import {selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
-        # TODO we got to look and load from ./myscripts and ../myscripts directories
-    else:
-        target_var = args.get("self", selected_var)
+    elif "self" in args:
+        # Object method call (e.g. img.crop(...))
+        target_var = args["self"] or selected_var
         other_args = {k: v for k, v in args.items() if k != "self"}
         args_str = ", ".join(f"{k}={repr(v)}" for k, v in other_args.items())
         if copy_on_write:
             cmd_line = f"{out_var_name} = {target_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
         else:
             cmd_line = f"{out_var_name} = {target_var}\n{out_var_name}.{selected_func}({args_str})"
+    else:
+        # Standalone Python function (e.g. read_image, mextract, snflow)
+        var_name = args.get("new_var_name")
+        other_args = {k: v for k, v in args.items() if k != "new_var_name"}
+        if other_args.get("max_nz") == -1:
+            other_args.pop("max_nz", None)
+        args_str = ", ".join(f"{k}={repr(v)}" for k, v in other_args.items())
+        if var_name:
+            cmd_line = f"{var_name} = {selected_func}({args_str})"
+        else:
+            cmd_line = f"{selected_func}({args_str})"
     return cmd_line
 
 def get_output_files(dir=top_dir/"runs"):
