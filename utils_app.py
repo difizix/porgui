@@ -470,16 +470,20 @@ def get_xdmf_func_args(func_name: str, extra_help=None):
     return {"params": [], "desc": extra_help or ""}
 
 
+OUTPUT_CAPTURE_LOCK = threading.Lock() # process-wide (all users)
+
+
 def run_capturing_output(func, *args, **kwargs):
     """Runs a function and captures its combined stdout and stderr.
 
     Returns:
         tuple: (result, output_str)
     """
-    stdout_buf = io.StringIO()
-    with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stdout_buf):
-        with ostream_redirect(stdout=True, stderr=True):
-            result = func(*args, **kwargs)
+    with OUTPUT_CAPTURE_LOCK: # allow one user script run at a time
+        stdout_buf = io.StringIO()
+        with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stdout_buf):
+            with ostream_redirect(stdout=True, stderr=True):
+                result = func(*args, **kwargs)
     return result, stdout_buf.getvalue()
 
 
@@ -524,6 +528,7 @@ def stream_callable_output(func, result_holder: Optional[dict] = None, *args, **
     """Generator yielding stdout/stderr chunks live while executing func(*args, **kwargs).
 
     Captures final (result, full_output, error) into result_holder if provided.
+    Serializes output redirection using OUTPUT_CAPTURE_LOCK to prevent cross-thread leakage.
     """
     if result_holder is None:
         result_holder = {}
@@ -534,16 +539,17 @@ def stream_callable_output(func, result_holder: Optional[dict] = None, *args, **
 
     def worker():
         try:
-            with contextlib.redirect_stdout(writer), contextlib.redirect_stderr(writer):
-                with ostream_redirect(stdout=True, stderr=True):
-                    state["result"] = func(*args, **kwargs)
+            with OUTPUT_CAPTURE_LOCK:
+                with contextlib.redirect_stdout(writer), contextlib.redirect_stderr(writer):
+                    with ostream_redirect(stdout=True, stderr=True):
+                        state["result"] = func(*args, **kwargs)
         except BaseException as err:
             state["error"] = err
             state["tb"] = f"{err}\n\n{traceback.format_exc()}"
         finally:
             q.put(None)
 
-    t = threading.Thread(target=worker)
+    t = threading.Thread(target=worker, daemon=True)
     try:
         from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
         ctx = get_script_run_ctx()

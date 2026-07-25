@@ -95,3 +95,47 @@ def test_execution_presenter_streaming():
     assert res.ok is True
     assert "py_func with val=21" in streamed_text
     assert res.nonimage_result == 42
+
+
+def test_concurrent_stream_callable_output_no_leakage():
+    """Verify that concurrent stream_callable_output invocations are serialized by OUTPUT_CAPTURE_LOCK
+    and do not leak stdout chunks between threads.
+    """
+    import threading
+
+    def job1():
+        time.sleep(0.05)
+        print("JOB1_LINE_A")
+        time.sleep(0.05)
+        print("JOB1_LINE_B")
+
+    def job2():
+        print("JOB2_LINE_A")
+        time.sleep(0.05)
+        print("JOB2_LINE_B")
+
+    holder1, holder2 = {}, {}
+    out1, out2 = [], []
+
+    def run1():
+        out1.extend(list(stream_callable_output(job1, holder1)))
+
+    def run2():
+        out2.extend(list(stream_callable_output(job2, holder2)))
+
+    t1 = threading.Thread(target=run1)
+    t2 = threading.Thread(target=run2)
+
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    text1 = "".join(out1)
+    text2 = "".join(out2)
+
+    assert "JOB1_LINE_A" in text1 and "JOB1_LINE_B" in text1
+    assert "JOB2_LINE_A" in text2 and "JOB2_LINE_B" in text2
+    assert "JOB2" not in text1
+    assert "JOB1" not in text2
+

@@ -531,7 +531,7 @@ def run_script(script_path, script_code, args_input, workspace, ik) -> ScriptRun
 def run_script_stream(script_path, script_code, args_input, workspace, ik, result_holder: Optional[dict] = None):
     """Execute a workflow script while streaming output live via yield generator.
 
-    Handing back ScriptRunResult in result_holder['result'].
+    Stores ScriptRunResult in result_holder['result'].
     """
     if result_holder is None:
         result_holder = {}

@@ -46,18 +46,10 @@ for _pf_name, _pf_func in PYTHON_FUNCTIONS.items():
 # TAB 3: NETWORK ANALYSIS
 # ----------------------------------------------------
 def render_pnm_tab():
-    if "net_generated_code" not in st.session_state:
-        st.session_state.net_generated_code = None
-
-    if "net_filenames" not in st.session_state:
-        st.session_state.net_filenames = {}
-
-    if "net_stdout" not in st.session_state:
-        st.session_state.net_stdout = ""
-    if "net_success" not in st.session_state:
-        st.session_state.net_success = ""
-    if "net_error" not in st.session_state:
-        st.session_state.net_error = ""
+    st.session_state.setdefault("net_generated_code", None)
+    st.session_state.setdefault("net_filenames", {})
+    st.session_state.setdefault("net_result", None)
+    net_result = st.session_state.net_result
 
     net_obj = None
     col_v_ctrl, col_v_canvas = st.columns([2, 3])
@@ -152,9 +144,8 @@ def render_pnm_tab():
                 copy_on_write = st.checkbox("Copy first (protect original)", value=True, help="If unchecked, operation is in-place.", key="net_copy_on_write")
 
         # Reset generated code if function changed
-        if "net_last_selected_func" not in st.session_state:
-            st.session_state.net_last_selected_func = selected_func
-        elif st.session_state.net_last_selected_func != selected_func:
+        prev_func = st.session_state.setdefault("net_last_selected_func", selected_func)
+        if prev_func != selected_func:
             st.session_state.net_last_selected_func = selected_func
             st.session_state.net_generated_code = None
 
@@ -171,9 +162,7 @@ def render_pnm_tab():
                 st.error(f"Failed to generate code: {gen_err}")
 
         if btn_run:
-            st.session_state.net_stdout = ""
-            st.session_state.net_success = ""
-            st.session_state.net_error = ""
+            st.session_state.net_result = None
 
             import pyvista as pv
 
@@ -208,11 +197,7 @@ def render_pnm_tab():
                     st.error(res.error)
                     st.stop()
 
-                if res.ok:
-                    st.session_state.net_stdout = res.stdout
-                    st.session_state.net_success = res.success_msg
-                else:
-                    st.session_state.net_error = res.error
+                st.session_state.net_result = res
             st.rerun()
 
         if st.session_state.net_generated_code:
@@ -220,17 +205,17 @@ def render_pnm_tab():
             st.markdown("##### 📋 Generated Python Code:")
             st.code(st.session_state.net_generated_code, language="python")
 
-        if st.session_state.net_stdout:
+        if net_result and net_result.stdout:
             st.markdown("---")
             st.markdown("##### 💬 Execution Output:")
-            st.code(st.session_state.net_stdout, language="text")
+            st.code(net_result.stdout, language="text")
 
-        if st.session_state.net_success:
-            st.success(st.session_state.net_success)
+        if net_result and net_result.success_msg:
+            st.success(net_result.success_msg)
 
-        if st.session_state.net_error:
+        if net_result and net_result.error:
             st.error("Execution failed:")
-            st.code(st.session_state.net_error, language="text")
+            st.code(net_result.error, language="text")
 
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")

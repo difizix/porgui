@@ -19,5 +19,5 @@ rock_mask.shrink0()
 threshold = int(wet.otsu_threshold()[2])
 
 mineral = wet.copy()
-mineral.blend_min_variance(image2=dry, bgn=threshold, end=65535, shift=-2.0, span=5.0, mask=rock_mask)
+mineral.blend_min_variance(image2=dry, bgn=threshold, end=65535, shift=-2.0, span=3, mask=rock_mask)
 mineral.print_info()

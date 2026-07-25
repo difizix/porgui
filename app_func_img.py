@@ -148,18 +148,9 @@ def render_imgpro_tab():
 
 
 
-    if "generated_code" not in st.session_state:
-        st.session_state.generated_code = None
-    if "img_stdout" not in st.session_state:
-        st.session_state.img_stdout = ""
-    if "img_success" not in st.session_state:
-        st.session_state.img_success = ""
-    if "img_error" not in st.session_state:
-        st.session_state.img_error = ""
-    if "img_nonimage_result" not in st.session_state:
-        st.session_state.img_nonimage_result = None
-    if "img_nonimage_result_func" not in st.session_state:
-        st.session_state.img_nonimage_result_func = None
+    st.session_state.setdefault("generated_code", None)
+    st.session_state.setdefault("img_result", None)
+    img_result = st.session_state.img_result
 
     workspace = get_workspace()
     vxl_types = workspace.image_types
@@ -320,9 +311,8 @@ def render_imgpro_tab():
                 copy_on_write = st.checkbox("Copy first (protect original image)", value=True, help="If unchecked, the operation is run in-place modifying the selected variable.")
 
         # Update last selected function tracker and reset generated code if function changed
-        if "last_selected_func" not in st.session_state:
-            st.session_state.last_selected_func = selected_func
-        elif st.session_state.last_selected_func != selected_func:
+        prev_func = st.session_state.setdefault("last_selected_func", selected_func)
+        if prev_func != selected_func:
             st.session_state.last_selected_func = selected_func
             st.session_state.generated_code = None
 
@@ -342,11 +332,7 @@ def render_imgpro_tab():
                 st.error(f"Failed to generate code: {gen_err}")
 
         if btn_run:
-            st.session_state.img_stdout = ""
-            st.session_state.img_success = ""
-            st.session_state.img_error = ""
-            st.session_state.img_nonimage_result = None
-            st.session_state.img_nonimage_result_func = None
+            st.session_state.img_result = None
 
             presenter = get_presenter()
             result_holder = {}
@@ -378,15 +364,9 @@ def render_imgpro_tab():
                     st.error(res.error)
                     st.stop()
 
-                if res.ok:
-                    st.session_state.img_stdout = res.stdout
-                    st.session_state.img_success = res.success_msg
-                    st.session_state.img_nonimage_result = res.nonimage_result
-                    st.session_state.img_nonimage_result_func = res.nonimage_func
-                    if res.stored_var:
-                        st.session_state.pending_active_var = res.stored_var
-                else:
-                    st.session_state.img_error = res.error
+                if res.ok and res.stored_var:
+                    st.session_state.pending_active_var = res.stored_var
+                st.session_state.img_result = res
             st.rerun()
 
 
@@ -396,17 +376,17 @@ def render_imgpro_tab():
             st.markdown("##### 📋 Generated Python Code:")
             st.code(st.session_state.generated_code, language="python")
 
-        if st.session_state.img_stdout:
+        if img_result and img_result.stdout:
             st.markdown("---")
             st.markdown("##### 💬 Execution Output:")
-            st.code(st.session_state.img_stdout, language="text")
+            st.code(img_result.stdout, language="text")
 
-        if st.session_state.img_success:
-            st.success(st.session_state.img_success)
+        if img_result and img_result.success_msg:
+            st.success(img_result.success_msg)
 
-        if st.session_state.img_error:
+        if img_result and img_result.error:
             st.error("Execution failed:")
-            st.code(st.session_state.img_error, language="text")
+            st.code(img_result.error, language="text")
 
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")
@@ -436,10 +416,11 @@ def render_imgpro_tab():
             except Exception as slice_err:
                 st.error(f"Error rendering image slice from memory: {slice_err}")
 
-            if st.session_state.get("img_stdout"):
+            if img_result and img_result.stdout:
+                # TODO: make the following a function , get plots_from_log(), and add a test
                 import re
                 from pathlib import Path
-                matches = re.findall(r"[\w/\.-]+\.(?:png|svg)", st.session_state.img_stdout)
+                matches = re.findall(r"[\w/\.-]+\.(?:png|svg)", img_result.stdout)
                 seen = set()
                 existing_plots = []
                 for match in matches:
@@ -472,11 +453,11 @@ def render_imgpro_tab():
 
         # Non-image results from curated methods that returned a real value
         # (e.g. otsu_threshold's [min, avg_0, threshold, avg_1, max] stats list).
-        if st.session_state.get("img_nonimage_result") is not None:
+        if img_result and img_result.nonimage_result is not None:
             st.markdown("---")
-            func_label = st.session_state.get("img_nonimage_result_func") or "function"
+            func_label = img_result.nonimage_func or "function"
             st.markdown(f"##### 🔢 Function Result (`{func_label}`):")
-            _res = st.session_state.img_nonimage_result
+            _res = img_result.nonimage_result
             if isinstance(_res, (list, tuple, dict)):
                 try:
                     st.json(_res)
