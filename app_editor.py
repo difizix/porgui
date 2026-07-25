@@ -134,20 +134,24 @@ def workflow_studio(st, ik):
         os.makedirs("fig", exist_ok=True)
 
         workspace = get_workspace()
-        result = run_script(selected_script, script_code, args_input, workspace, ik)
+        st.markdown("##### ⚙️ Streaming Workflow Script Output...")
+        result_holder = {}
+        st.write_stream(run_script_stream(selected_script, script_code, args_input, workspace, ik, result_holder))
+        result = result_holder.get("result")
 
-        st.session_state.console_output = result.console_output
-        (st.success if result.ok else st.error)(result.message)
+        if result:
+            st.session_state.console_output = result.console_output
+            (st.success if result.ok else st.error)(result.message)
 
-        with open(result.log_path, "w") as lf:
-            lf.write(result.log_text)
+            with open(result.log_path, "w") as lf:
+                lf.write(result.log_text)
 
-        if result.absorbed_vars and workspace.active_var:
-            st.session_state.active_var_selectbox_widget = workspace.active_var
+            if result.absorbed_vars and workspace.active_var:
+                st.session_state.active_var_selectbox_widget = workspace.active_var
 
-        pngs, logs = get_output_files()
-        st.session_state.png_files = pngs
-        st.session_state.log_files = logs
+            pngs, logs = get_output_files()
+            st.session_state.png_files = pngs
+            st.session_state.log_files = logs
         st.rerun()
 
     # Render Console logs and Command History side-by-side below the editor

@@ -1,11 +1,16 @@
 import argparse
+import contextlib
 import inspect
+import io
+import queue
 import re
 import shlex
+import subprocess
 import sys
-import io
-import contextlib
+import threading
+import traceback
 from pathlib import Path
+from typing import Optional
 
 from image3kit._core import ostream_redirect
 
@@ -476,3 +481,91 @@ def run_capturing_output(func, *args, **kwargs):
         with ostream_redirect(stdout=True, stderr=True):
             result = func(*args, **kwargs)
     return result, stdout_buf.getvalue()
+
+
+def stream_process_output(cmd, cwd=None, env=None):
+    """Generator yielding each line of stdout/stderr from a process in real time.
+
+    Streamlit usage:
+        st.write_stream(stream_process_output(cmd))
+    """
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        cwd=cwd,
+        env=env,
+    )
+
+    if process.stdout:
+        for line in iter(process.stdout.readline, ''):
+            yield line
+        process.stdout.close()
+    process.wait()
+
+
+class _QueueWriter(io.StringIO):
+    def __init__(self, q: queue.Queue):
+        super().__init__()
+        self.q = q
+
+    def write(self, s: str) -> int:
+        if s:
+            self.q.put(s)
+        return len(s) if s else 0
+
+    def flush(self) -> None:
+        pass
+
+
+def stream_callable_output(func, result_holder: Optional[dict] = None, *args, **kwargs):
+    """Generator yielding stdout/stderr chunks live while executing func(*args, **kwargs).
+
+    Captures final (result, full_output, error) into result_holder if provided.
+    """
+    if result_holder is None:
+        result_holder = {}
+
+    q = queue.Queue()
+    writer = _QueueWriter(q)
+    state = {"result": None, "error": None, "tb": ""}
+
+    def worker():
+        try:
+            with contextlib.redirect_stdout(writer), contextlib.redirect_stderr(writer):
+                with ostream_redirect(stdout=True, stderr=True):
+                    state["result"] = func(*args, **kwargs)
+        except BaseException as err:
+            state["error"] = err
+            state["tb"] = f"{err}\n\n{traceback.format_exc()}"
+        finally:
+            q.put(None)
+
+    t = threading.Thread(target=worker)
+    try:
+        from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+        ctx = get_script_run_ctx()
+        if ctx is not None:
+            add_script_run_ctx(t, ctx)
+    except Exception:
+        pass
+
+    t.start()
+
+    accumulated = []
+    while True:
+        chunk = q.get()
+        if chunk is None:
+            break
+        accumulated.append(chunk)
+        yield chunk
+
+    t.join()
+    full_output = "".join(accumulated)
+    result_holder["result"] = state["result"]
+    result_holder["output"] = full_output
+    result_holder["error"] = state["error"]
+    result_holder["tb"] = state["tb"]
+

@@ -349,36 +349,44 @@ def render_imgpro_tab():
             st.session_state.img_nonimage_result_func = None
 
             presenter = get_presenter()
+            result_holder = {}
 
+            st.markdown("##### ⚙️ Streaming Execution Output...")
             if selected_func in PYTHON_FUNCTIONS:
-                res = presenter.run_python_func(
-                    selected_func, PYTHON_FUNCTIONS[selected_func], args, out_var_name
+                stream_gen = presenter.run_python_func_stream(
+                    selected_func, PYTHON_FUNCTIONS[selected_func], args, out_var_name, result_holder=result_holder
                 )
             elif is_standalone:
                 standalone_func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
-                res = presenter.run_standalone(selected_func, standalone_func, args)
+                stream_gen = presenter.run_standalone_stream(
+                    selected_func, standalone_func, args, result_holder=result_holder
+                )
             else:
                 # "self" comes from the form; fall back to the viewed image
                 target_var = args.pop("self", None) or selected_var
                 # Object-typed args (e.g. alpha_image) arrive as variable names
                 args = resolve_object_args(args, params_meta, presenter.workspace.vars)
-                res = presenter.run_method(
-                    selected_func, target_var, args, copy_on_write, out_var_name
+                stream_gen = presenter.run_method_stream(
+                    selected_func, target_var, args, copy_on_write, out_var_name, result_holder=result_holder
                 )
 
-            if res.invalid:
-                st.error(res.error)
-                st.stop()
+            st.write_stream(stream_gen)
+            res = result_holder.get("result")
 
-            if res.ok:
-                st.session_state.img_stdout = res.stdout
-                st.session_state.img_success = res.success_msg
-                st.session_state.img_nonimage_result = res.nonimage_result
-                st.session_state.img_nonimage_result_func = res.nonimage_func
-                if res.stored_var:
-                    st.session_state.pending_active_var = res.stored_var
-            else:
-                st.session_state.img_error = res.error
+            if res:
+                if res.invalid:
+                    st.error(res.error)
+                    st.stop()
+
+                if res.ok:
+                    st.session_state.img_stdout = res.stdout
+                    st.session_state.img_success = res.success_msg
+                    st.session_state.img_nonimage_result = res.nonimage_result
+                    st.session_state.img_nonimage_result_func = res.nonimage_func
+                    if res.stored_var:
+                        st.session_state.pending_active_var = res.stored_var
+                else:
+                    st.session_state.img_error = res.error
             st.rerun()
 
 

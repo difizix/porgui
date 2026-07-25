@@ -178,30 +178,41 @@ def render_pnm_tab():
             import pyvista as pv
 
             presenter = get_presenter()
+            result_holder = {}
 
+            st.markdown("##### ⚙️ Streaming Execution Output...")
             if selected_func in PYTHON_FUNCTIONS:
-                res = presenter.run_object_func(
+                stream_gen = presenter.run_object_func_stream(
                     selected_func, PYTHON_FUNCTIONS[selected_func], args, out_var_name,
                     store_types=(pv.PolyData, pv.UnstructuredGrid),
                     filenames=st.session_state.net_filenames,
+                    result_holder=result_holder,
                 )
             elif is_standalone:
                 standalone_func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
-                res = presenter.run_standalone(selected_func, standalone_func, args)
+                stream_gen = presenter.run_standalone_stream(
+                    selected_func, standalone_func, args, result_holder=result_holder
+                )
             else:
                 target_var = args.pop("self", None) or selected_var
                 args = resolve_object_args(args, params_meta, presenter.workspace.vars)
-                res = presenter.run_object_method(selected_func, target_var, args)
+                stream_gen = presenter.run_object_method_stream(
+                    selected_func, target_var, args, result_holder=result_holder
+                )
 
-            if res.invalid:
-                st.error(res.error)
-                st.stop()
+            st.write_stream(stream_gen)
+            res = result_holder.get("result")
 
-            if res.ok:
-                st.session_state.net_stdout = res.stdout
-                st.session_state.net_success = res.success_msg
-            else:
-                st.session_state.net_error = res.error
+            if res:
+                if res.invalid:
+                    st.error(res.error)
+                    st.stop()
+
+                if res.ok:
+                    st.session_state.net_stdout = res.stdout
+                    st.session_state.net_success = res.success_msg
+                else:
+                    st.session_state.net_error = res.error
             st.rerun()
 
         if st.session_state.net_generated_code:

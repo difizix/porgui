@@ -20,7 +20,7 @@ from typing import Any, Optional
 from image3kit._core import ostream_redirect
 
 from app_state import coerce_to_wrapper
-from utils_app import run_capturing_output
+from utils_app import run_capturing_output, stream_callable_output
 
 
 def is_object_dropdown_type(type_val, type_names):
@@ -274,6 +274,210 @@ class ExecutionPresenter:
         self.workspace.record_command(res.command_line)
         return res
 
+    # -- streaming variants ------------------------------------------------
+    def run_object_func_stream(self, name, func, args, out_var_name="", store_types=(), filenames=None, result_holder: Optional[dict] = None):
+        if result_holder is None:
+            result_holder = {}
+        args = dict(args)
+        var_name = args.pop("new_var_name", None) or out_var_name or name
+        filename = args.get("filename", "")
+        if "filename" in args and not args["filename"]:
+            result_holder["result"] = ExecResult(ok=False, invalid=True, error="Please select a file to load.")
+            return
+
+        call_holder = {}
+        for chunk in stream_callable_output(lambda: func(**args), call_holder):
+            yield chunk
+
+        error = call_holder.get("error")
+        if error is not None:
+            tb = call_holder.get("tb", "")
+            result_holder["result"] = ExecResult(ok=False, error=f"{error}\n\n{tb}")
+            return
+
+        result = call_holder.get("result")
+        stdout = call_holder.get("output", "").strip()
+
+        res = ExecResult(stdout=stdout, command_line=f"{var_name} = {name}({format_args(args)})")
+        if store_types and isinstance(result, store_types):
+            self.workspace.store_var(var_name, result)
+            res.stored_var = var_name
+            if filename and filenames is not None:
+                filenames[var_name] = filename
+        res.success_msg = f"Executed `{name}`, result stored as `{var_name}`."
+        self.workspace.record_command(res.command_line)
+        result_holder["result"] = res
+
+    def run_object_method_stream(self, name, target_var, args, result_holder: Optional[dict] = None):
+        if result_holder is None:
+            result_holder = {}
+        run_obj = self.workspace.get(target_var)
+        if run_obj is None:
+            result_holder["result"] = ExecResult(
+                ok=False, invalid=True, error="No target network object available to execute method on."
+            )
+            return
+
+        call_holder = {}
+        for chunk in stream_callable_output(lambda: getattr(run_obj, name)(**args), call_holder):
+            yield chunk
+
+        error = call_holder.get("error")
+        if error is not None:
+            tb = call_holder.get("tb", "")
+            result_holder["result"] = ExecResult(ok=False, error=f"{error}\n\n{tb}")
+            return
+
+        result = call_holder.get("result")
+        stdout = call_holder.get("output", "").strip()
+
+        res = ExecResult(
+            stdout=stdout,
+            command_line=f"{target_var}.{name}({format_args(args)})",
+            success_msg=f"Successfully executed `{name}` in-place on `{target_var}`.",
+            nonimage_result=result,
+            nonimage_func=name,
+        )
+        self.workspace.record_command(res.command_line)
+        result_holder["result"] = res
+
+    def run_python_func_stream(self, name, func, args, out_var_name="", result_holder: Optional[dict] = None):
+        if result_holder is None:
+            result_holder = {}
+        args = dict(args)
+        var_name = args.pop("new_var_name", None) or out_var_name or name
+        filename = args.get("filename", "")
+        if "filename" in args and not args["filename"]:
+            result_holder["result"] = ExecResult(ok=False, invalid=True, error="Please select a file to load.")
+            return
+
+        call_holder = {}
+        for chunk in stream_callable_output(lambda: func(**args), call_holder):
+            yield chunk
+
+        error = call_holder.get("error")
+        if error is not None:
+            tb = call_holder.get("tb", "")
+            result_holder["result"] = ExecResult(ok=False, error=f"{error}\n\n{tb}")
+            return
+
+        result = call_holder.get("result")
+        stdout = call_holder.get("output", "").strip()
+
+        res = ExecResult(stdout=stdout, command_line=f"{var_name} = {name}({format_args(args)})")
+
+        if self._looks_like_image(result):
+            output_img = self._wrap(result)
+            if filename:
+                cache_key = f"{type(output_img).__name__}_{os.path.abspath(filename)}"
+                self.workspace.image_cache[cache_key] = output_img
+            self.workspace.store_image(var_name, output_img)
+            res.is_image = True
+            res.stored_var = var_name
+            res.success_msg = f"Executed `{name}`, result stored as `{var_name}`."
+        else:
+            res.nonimage_result = result
+            res.nonimage_func = name
+            if result is None:
+                res.success_msg = f"Executed `{name}` (no return value; nothing stored)."
+            else:
+                res.success_msg = (
+                    f"Executed `{name}` — returned a non-image result (see right panel); nothing stored."
+                )
+
+        self.workspace.record_command(res.command_line)
+        result_holder["result"] = res
+
+    def run_standalone_stream(self, name, func, args, import_prefix="pyvtk.", result_holder: Optional[dict] = None):
+        if result_holder is None:
+            result_holder = {}
+        def call():
+            if func is None:
+                print(f"{name} not wired in!!!")
+                return None
+            return func(**args)
+
+        call_holder = {}
+        for chunk in stream_callable_output(call, call_holder):
+            yield chunk
+
+        error = call_holder.get("error")
+        if error is not None:
+            tb = call_holder.get("tb", "")
+            result_holder["result"] = ExecResult(ok=False, error=f"{error}\n\n{tb}")
+            return
+
+        stdout = call_holder.get("output", "").strip()
+        command_line = (
+            f"import {import_prefix}{name} as {name}\n"
+            f"{name}.main()  # args: {format_args(args)}"
+        )
+        self.workspace.record_command(command_line)
+        result_holder["result"] = ExecResult(
+            stdout=stdout,
+            command_line=command_line,
+            success_msg=f"Successfully executed standalone command `{name}`!",
+        )
+
+    def run_method_stream(self, name, target_var, args, copy_on_write=True, out_var_name="", result_holder: Optional[dict] = None):
+        if result_holder is None:
+            result_holder = {}
+        target_img = self.workspace.get(target_var)
+        if target_img is None:
+            result_holder["result"] = ExecResult(ok=False, invalid=True, error="No target image available to execute method on.")
+            return
+
+        run_obj = target_img.copy() if copy_on_write else target_img
+        out_var_name = out_var_name or target_var
+
+        call_holder = {}
+        for chunk in stream_callable_output(lambda: getattr(run_obj, name)(**args), call_holder):
+            yield chunk
+
+        error = call_holder.get("error")
+        if error is not None:
+            tb = call_holder.get("tb", "")
+            result_holder["result"] = ExecResult(ok=False, error=f"{error}\n\n{tb}")
+            return
+
+        result = call_holder.get("result")
+        stdout = call_holder.get("output", "").strip()
+
+        res = ExecResult(stdout=stdout)
+        args_str = format_args(args)
+
+        if self._looks_like_image(result):
+            raw_img = result
+        elif result is None:
+            raw_img = run_obj
+        else:
+            raw_img = None
+
+        if raw_img is not None:
+            output_img = self._wrap(raw_img)
+            self.workspace.store_image(out_var_name, output_img)
+            res.is_image = True
+            res.stored_var = out_var_name
+            if copy_on_write:
+                res.command_line = f"{out_var_name} = {target_var}.copy()\n{out_var_name}.{name}({args_str})"
+            else:
+                res.command_line = f"{out_var_name} = {target_var}\n{out_var_name}.{name}({args_str})"
+            res.success_msg = f"Successfully executed `{name}`! Output stored as `{out_var_name}`."
+        else:
+            res.nonimage_result = result
+            res.nonimage_func = name
+            if copy_on_write:
+                res.command_line = f"_tmp = {target_var}.copy()\nresult = _tmp.{name}({args_str})"
+            else:
+                res.command_line = f"result = {target_var}.{name}({args_str})"
+            res.success_msg = (
+                f"Executed `{name}` — returned a non-image result (see right panel); "
+                "no new image variable was created."
+            )
+
+        self.workspace.record_command(res.command_line)
+        result_holder["result"] = res
+
 
 # --------------------------------------------------------------------------
 # Workflow script execution (the Workflow Editor tab)
@@ -314,28 +518,24 @@ def build_exec_namespace(script_path, workspace, ik) -> dict:
 
 
 def run_script(script_path, script_code, args_input, workspace, ik) -> ScriptRunResult:
-    """Execute a workflow script the way the editor's Run button does.
+    """Execute a workflow script the way the editor's Run button does."""
+    result_holder = {}
+    for _ in run_script_stream(script_path, script_code, args_input, workspace, ik, result_holder):
+        pass
+    res = result_holder.get("result")
+    if res is not None:
+        return res
+    return ScriptRunResult(ok=False, message="No result produced.", console_output="", log_path="", log_text="")
 
-    Sets up CLI-style sys.argv and puts the script's own directory on
-    sys.path, execs with combined Python+C++ stdout/stderr capture, and
-    always folds the resulting namespace into the workspace - on success,
-    on a SystemExit, and on an uncaught exception alike - so a script that
-    dies partway through does not discard whatever it had already built (the
-    rock_mask case: threshold01_otsu succeeds, a later call fails, and the
-    mask must still show up in the workspace).
 
-    Never raises: mirrors ExecutionPresenter's contract of handing the view a
-    result object instead of letting exceptions escape into it.
+def run_script_stream(script_path, script_code, args_input, workspace, ik, result_holder: Optional[dict] = None):
+    """Execute a workflow script while streaming output live via yield generator.
 
-    TODO (see TODO.md): a future version may run scripts out-of-process
-    (subprocess.Popen) to stream output live via st.write_stream instead of
-    returning it all at once. That is a bigger change than swapping the
-    stdout-capture mechanism: workspace variables are passed into the script
-    today as live Python objects via exec_namespace, which only works
-    in-process. Going subprocess means designing how those objects cross the
-    process boundary (serialize to the image_cache, a shared file, ...)
-    before output streaming itself is worth doing.
+    Handing back ScriptRunResult in result_holder['result'].
     """
+    if result_holder is None:
+        result_holder = {}
+
     exec_namespace = build_exec_namespace(script_path, workspace, ik)
     parsed_args = parse_cli_args(args_input)
     cmd_desc = f"{script_path} {args_input}"
@@ -348,25 +548,29 @@ def run_script(script_path, script_code, args_input, workspace, ik) -> ScriptRun
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
 
-    stdout_buf, stderr_buf = StringIO(), StringIO()
     exit_code = None
     excepted = False
     tb_text = ""
-    try:
-        with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
-            with ostream_redirect(stdout=True, stderr=True):
-                exec(script_code, exec_namespace)
-    except SystemExit as se:
-        exit_code = se.code
-    except BaseException:
-        excepted = True
-        tb_text = traceback.format_exc()
-    finally:
-        sys.argv = original_argv
-        sys.path[:] = original_path
-        absorbed = workspace.absorb_namespace(exec_namespace)
 
-    captured = stdout_buf.getvalue() + "\n" + stderr_buf.getvalue()
+    def _exec_target():
+        nonlocal exit_code, excepted, tb_text
+        try:
+            exec(script_code, exec_namespace)
+        except SystemExit as se:
+            exit_code = se.code
+        except BaseException:
+            excepted = True
+            tb_text = traceback.format_exc()
+        finally:
+            sys.argv = original_argv
+            sys.path[:] = original_path
+
+    call_holder = {}
+    for chunk in stream_callable_output(_exec_target, call_holder):
+        yield chunk
+
+    absorbed = workspace.absorb_namespace(exec_namespace)
+    captured = call_holder.get("output", "")
     ok = not excepted and exit_code in (None, 0)
 
     if ok:
@@ -382,7 +586,7 @@ def run_script(script_path, script_code, args_input, workspace, ik) -> ScriptRun
         console_output = captured + "\n" + tb_text
         log_text = f"⛔ cmd: '{cmd_desc}':\n# Status: ERROR\n\n{console_output}"
 
-    return ScriptRunResult(
+    res = ScriptRunResult(
         ok=ok,
         message=message,
         console_output=console_output,
@@ -391,3 +595,5 @@ def run_script(script_path, script_code, args_input, workspace, ik) -> ScriptRun
         absorbed_vars=absorbed,
         exit_code=exit_code,
     )
+    result_holder["result"] = res
+
