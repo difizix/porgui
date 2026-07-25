@@ -3,12 +3,14 @@ import sys
 
 # Ensure repository root is in sys.path
 repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if not os.path.exists(repo_root) and os.path.exists("/app"):
+    repo_root = "/app"
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
 import image3kit as ik
 
-from state_app import DictStore, SessionStore, Workspace, coerce_to_wrapper
+from app_state import DictStore, SessionStore, Workspace, coerce_to_wrapper
 
 DATA_FILE = os.path.join(repo_root, "runs", "Pak2D_240x200x1_5um.dat")
 
@@ -36,7 +38,7 @@ def test_domain_layer_does_not_import_streamlit():
     import subprocess
 
     check = subprocess.run(
-        [sys.executable, "-c", "import state_app, presenters_app, utils_app, sys;"
+        [sys.executable, "-c", "import app_state, app_presenters, utils_app, sys;"
                               " sys.exit(1 if 'streamlit' in sys.modules else 0)"],
         cwd=repo_root,
     )

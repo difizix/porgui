@@ -1,12 +1,7 @@
-from contextlib import redirect_stderr
-from contextlib import redirect_stdout
 import os
-import sys
-import shlex
-import io
-import traceback
 import glob
-from image3kit._core import ostream_redirect
+from app_common import get_workspace
+from app_presenters import run_script, run_script_stream
 from utils_app import get_output_files
 
 # ----------------------------------------------------
@@ -29,7 +24,7 @@ def _new_file_dialog(st):
     _dialog()
 
 
-def workflow_studio(st, ik, update_workspace_vars):
+def workflow_studio(st, ik):
 
     # Scan directory for workspace scripts
     script_files = sorted(glob.glob("*.py"))
@@ -135,95 +130,25 @@ def workflow_studio(st, ik, update_workspace_vars):
     # Execution logic
     if run_pressed and selected_script:
         st.session_state.last_executed_script = selected_script
-        
+
         os.makedirs("fig", exist_ok=True)
-        
-        original_argv = sys.argv
-        try:
-            parsed_args = shlex.split(args_input)
-            # Resolve relative input file paths to absolute paths
-            for idx, arg in enumerate(parsed_args):
-                if os.path.exists(arg):
-                    parsed_args[idx] = os.path.abspath(arg)
-            sys.argv = [selected_script] + parsed_args
-        except Exception as arg_err:
-            st.error(f"Failed to parse arguments: {arg_err}")
-            st.stop()
-            
-        exec_namespace = {
-            "__name__": "__main__",
-            "__file__": os.path.abspath(selected_script),
-            "image3kit": ik,
-        }
-        for k, v in st.session_state.workspace_vars.items():
-            exec_namespace[k] = v
-        
-        stdout_buf = io.StringIO()
-        stderr_buf = io.StringIO()
-        log_path = os.path.abspath(os.path.splitext(os.path.basename(selected_script))[0] + ".log")
-        
-        try:
-            script_dir = os.path.dirname(os.path.abspath(selected_script))
-            if script_dir not in sys.path:
-                sys.path.insert(0, script_dir)
-                _added_script_dir = True
-            else:
-                _added_script_dir = False
-            with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
-                with ostream_redirect(stdout=True, stderr=True):
-                    exec(script_code, exec_namespace)
-            
-            captured_combined = stdout_buf.getvalue() + "\n" + stderr_buf.getvalue()
-            st.session_state.console_output = captured_combined
-            st.success("Workflow completed successfully!")
-            
-            with open(log_path, "w") as lf:
-                lf.write(f"✅ cmd: '{selected_script} {args_input}':\n")
-                lf.write(captured_combined)
 
-            update_workspace_vars(exec_namespace)
+        workspace = get_workspace()
+        result = run_script(selected_script, script_code, args_input, workspace, ik)
 
-        except SystemExit as se:
-            captured_combined = stdout_buf.getvalue() + "\n" + stderr_buf.getvalue()
-            st.session_state.console_output = captured_combined
-            
-            if se.code in (0, None):
-                st.success("Workflow completed successfully!")
-                with open(log_path, "w") as lf:
-                    lf.write(f"✅ cmd: '{selected_script} {args_input}':\n")
-                    lf.write(captured_combined)
-            else:
-                st.error(f"Workflow exited with code {se.code}.")
-                with open(log_path, "w") as lf:
-                    lf.write(f"⛔ cmd: '{selected_script} {args_input}':\n")
-                    lf.write(f"# Status: ERROR (SystemExit: {se.code})\n\n")
-                    lf.write(captured_combined)
+        st.session_state.console_output = result.console_output
+        (st.success if result.ok else st.error)(result.message)
 
-            update_workspace_vars(exec_namespace)
-        except BaseException:
-            err_text = stdout_buf.getvalue() + "\n" + stderr_buf.getvalue() + "\n" + traceback.format_exc()
-            st.session_state.console_output = err_text
-            st.error("Workflow failed with execution error.")
+        with open(result.log_path, "w") as lf:
+            lf.write(result.log_text)
 
-            with open(log_path, "w") as lf:
-                lf.write(f"⛔ cmd: '{selected_script} {args_input}':\n")
-                lf.write("# Status: ERROR\n\n")
-                lf.write(err_text)
+        if result.absorbed_vars and workspace.active_var:
+            st.session_state.active_var_selectbox_widget = workspace.active_var
 
-            # Absorb whatever the script did manage to build before it failed.
-            # Without this a script that dies partway (e.g. differential_imaging.py
-            # failing after rock_mask is computed) silently discards every
-            # variable it had already produced.
-            update_workspace_vars(exec_namespace)
-
-        finally:
-            if _added_script_dir and script_dir in sys.path:
-                sys.path.remove(script_dir)
-            sys.argv = original_argv
-            pngs, logs = get_output_files()
-            st.session_state.png_files = pngs
-            st.session_state.log_files = logs
-            st.rerun()
+        pngs, logs = get_output_files()
+        st.session_state.png_files = pngs
+        st.session_state.log_files = logs
+        st.rerun()
 
     # Render Console logs and Command History side-by-side below the editor
     col_hist, col_log = st.columns([1, 1])

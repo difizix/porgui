@@ -3,13 +3,21 @@ import sys
 
 # Ensure repository root is in sys.path
 repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if not os.path.exists(repo_root) and os.path.exists("/app"):
+    repo_root = "/app"
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
 import image3kit as ik
 
-from presenters_app import ExecutionPresenter, format_args, resolve_object_args
-from state_app import DictStore, Workspace
+from app_presenters import (
+    ExecutionPresenter,
+    format_args,
+    parse_cli_args,
+    resolve_object_args,
+    run_script,
+)
+from app_state import DictStore, Workspace
 
 DATA_FILE = os.path.join(repo_root, "runs", "Pak2D_240x200x1_5um.dat")
 
@@ -17,13 +25,18 @@ VOXLIB = ik._core.voxlib
 TYPE_NAMES = ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg")
 
 
-def make_presenter():
+def make_workspace():
     store = DictStore()
     store["original_VxlImgU16"] = VOXLIB.VxlImgU16
     store["original_VxlImgU8"] = VOXLIB.VxlImgU8
     store["original_VxlImgI32"] = VOXLIB.VxlImgI32
     store["original_VxlImgF32"] = VOXLIB.VxlImgF32
-    workspace = Workspace(store)
+    store["original_voxelImageTBase"] = VOXLIB.voxelImageTBase
+    return Workspace(store)
+
+
+def make_presenter():
+    workspace = make_workspace()
     return ExecutionPresenter(workspace), workspace
 
 
@@ -216,3 +229,104 @@ def test_resolve_object_args_leaves_scalar_params_alone():
 
 def test_format_args_uses_repr_so_the_snippet_is_runnable():
     assert format_args({"path": "a.raw", "n": 3}) == "path='a.raw', n=3"
+
+
+# --------------------------------------------------------------------------
+# parse_cli_args
+# --------------------------------------------------------------------------
+def test_parse_cli_args_resolves_an_existing_relative_path_to_absolute(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "input.dat").write_text("data")
+
+    parsed = parse_cli_args("--x0 374 input.dat --flag")
+
+    assert parsed[0] == "--x0"
+    assert parsed[1] == "374"
+    assert parsed[2] == str((tmp_path / "input.dat").resolve())
+    assert parsed[3] == "--flag"
+
+
+def test_parse_cli_args_leaves_nonexistent_paths_alone(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert parse_cli_args("--name not_a_real_file.dat") == ["--name", "not_a_real_file.dat"]
+
+
+# --------------------------------------------------------------------------
+# run_script
+# --------------------------------------------------------------------------
+def test_run_script_success_stores_variables_and_captures_cpp_stdout():
+    ws = make_workspace()
+    script = (
+        "import image3kit as ik\n"
+        f"wet = ik.VxlImgU16({DATA_FILE!r})\n"
+        "wet.print_info()\n"
+    )
+
+    result = run_script("differential_imaging.py", script, "", ws, ik)
+
+    assert result.ok
+    assert result.message == "Workflow completed successfully!"
+    assert "wet" in result.absorbed_vars
+    assert "wet" in ws.image_vars()
+    assert "total_porosity" in result.console_output
+    assert result.log_text.startswith("✅")
+
+
+def test_run_script_clean_sys_exit_is_treated_as_success():
+    ws = make_workspace()
+    result = run_script("script.py", "import sys\nsys.exit(0)\n", "", ws, ik)
+    assert result.ok
+    assert result.message == "Workflow completed successfully!"
+
+
+def test_run_script_nonzero_sys_exit_is_an_error_with_the_code_in_the_message():
+    ws = make_workspace()
+    result = run_script("script.py", "import sys\nsys.exit(2)\n", "", ws, ik)
+    assert not result.ok
+    assert "exited with code 2" in result.message
+    assert "SystemExit: 2" in result.log_text
+
+
+def test_run_script_keeps_variables_built_before_a_later_failure():
+    """Regression guard for the rock_mask bug: a script that builds an image
+    and then dies must not lose that image. Exercises the real run_script,
+    not a hand-simulated exec/except like the earlier Workspace-level test.
+    """
+    ws = make_workspace()
+    script = (
+        "import image3kit as ik\n"
+        f"wet = ik.VxlImgU16({DATA_FILE!r})\n"
+        "rock_mask = ik.threshold01_otsu(wet)\n"
+        "raise RuntimeError('boom, partway through')\n"
+    )
+
+    result = run_script("differential_imaging.py", script, "", ws, ik)
+
+    assert not result.ok
+    assert result.message == "Workflow failed with execution error."
+    assert "RuntimeError" in result.console_output
+    assert "rock_mask" in result.absorbed_vars
+    assert "rock_mask" in ws.image_vars()
+    assert result.log_text.startswith("⛔")
+
+
+def test_run_script_restores_sys_argv_and_sys_path():
+    import sys
+
+    ws = make_workspace()
+    original_argv = list(sys.argv)
+    original_path = list(sys.path)
+
+    run_script("differential_imaging.py", "x = 1\n", "--foo bar", ws, ik)
+
+    assert sys.argv == original_argv
+    assert sys.path == original_path
+
+
+def test_run_script_passes_workspace_variables_into_the_script():
+    ws = make_workspace()
+    ws.store_image("wet", ik.VxlImgU16(DATA_FILE))
+
+    result = run_script("script.py", "assert wet is not None\nresult_ok = True\n", "", ws, ik)
+
+    assert result.ok

@@ -104,21 +104,6 @@ except ImportError:
     st.stop()
 
 
-def update_workspace_vars(namespace):
-    """Absorb image variables from an executed script into the workspace.
-
-    The domain half lives in Workspace.absorb_namespace (unit tested in
-    tests/test_state_app.py); only syncing the selectbox widget key stays here,
-    since that is purely a streamlit concern.
-    """
-    from app_common import get_workspace
-
-    workspace = get_workspace()
-    absorbed = workspace.absorb_namespace(namespace)
-    if absorbed and workspace.active_var:
-        st.session_state.active_var_selectbox_widget = workspace.active_var
-    return absorbed
-
 # ----------------------------------------------------
 # TRANSPARENT MEMORY CACHING (Monkeypatching loader classes)
 # ----------------------------------------------------
@@ -222,7 +207,7 @@ with tabs[2]:
 # ----------------------------------------------------
 with tabs[0]:
     import app_editor
-    app_editor.workflow_studio(st, ik, update_workspace_vars)
+    app_editor.workflow_studio(st, ik)
 
 # ----------------------------------------------------
 # TAB 2: INTERACTIVE VISUALIZER

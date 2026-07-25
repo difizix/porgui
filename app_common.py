@@ -4,8 +4,8 @@ import os
 import glob
 
 
-import presenters_app
-from state_app import SessionStore, Workspace
+import app_presenters as presenters
+from app_state import SessionStore, Workspace
 
 OBJECT_DROPDOWN_TYPE_NAMES = ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "PolyData", "UnstructuredGrid")
 
@@ -52,20 +52,20 @@ def image_wrappers() -> dict:
     return {base: wrapper for base, wrapper in pairs if base is not None}
 
 
-def get_presenter(wrappers=None) -> presenters_app.ExecutionPresenter:
+def get_presenter(wrappers=None) -> presenters.ExecutionPresenter:
     if wrappers is None:
         wrappers = image_wrappers()
-    return presenters_app.ExecutionPresenter(get_workspace(), wrappers=wrappers)
+    return presenters.ExecutionPresenter(get_workspace(), wrappers=wrappers)
 
 
 # Both kept as thin wrappers over the framework-free implementations so the
 # existing call sites (and the OBJECT_DROPDOWN_TYPE_NAMES default) keep working.
 def is_object_dropdown_type(type_val):
-    return presenters_app.is_object_dropdown_type(type_val, OBJECT_DROPDOWN_TYPE_NAMES)
+    return presenters.is_object_dropdown_type(type_val, OBJECT_DROPDOWN_TYPE_NAMES)
 
 
 def resolve_object_args(args_dict, params_meta, workspace_vars):
-    return presenters_app.resolve_object_args(
+    return presenters.resolve_object_args(
         args_dict, params_meta, workspace_vars, OBJECT_DROPDOWN_TYPE_NAMES
     )
 
