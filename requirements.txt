@@ -11,4 +11,5 @@ imageio
 imageio-ffmpeg
 pyvista[jupyter]
 stpyvista
+playwright
 
