@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "porgui"
+version = "0.1.0"
+description = "PoreGUI app and utilities"
+requires-python = ">=3.9"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["pnmkit*", "snm*", "xpm*"]
+
+[tool.pyright]
+extraPaths = [
+    ".",
+    "image3kit",
+    "pnmkit",
+    "snm",
+    "xpm"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+

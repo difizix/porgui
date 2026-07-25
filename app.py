@@ -109,11 +109,16 @@ def update_workspace_vars(namespace):
         st.session_state.workspace_vars = {}
     
     # Extract any VxlImg variables from the namespace
+    core_mod = getattr(ik, "_core", None)
+    voxlib_mod = getattr(core_mod, "voxlib", None) if core_mod else None
+    vxl_base = getattr(voxlib_mod, "voxelImageTBase", tuple()) if voxlib_mod else tuple()
+    
     for k, v in namespace.items():
         if isinstance(v, (st.session_state.original_VxlImgU16,
                           st.session_state.original_VxlImgU8,
                           st.session_state.original_VxlImgI32,
-                          st.session_state.original_VxlImgF32)):
+                          st.session_state.original_VxlImgF32,
+                          vxl_base)):
             st.session_state.workspace_vars[k] = v
             # Default active image to the last detected 'img' variable, or first detected image
             if k == "img" or st.session_state.processed_image is None:
@@ -127,12 +132,16 @@ def update_workspace_vars(namespace):
 if "image_cache" not in st.session_state:
     st.session_state.image_cache = {}
 
-# Save references to original classes
-if "original_VxlImgU16" not in st.session_state:
-    st.session_state.original_VxlImgU16 = ik.VxlImgU16
-    st.session_state.original_VxlImgU8 = ik.VxlImgU8
-    st.session_state.original_VxlImgI32 = ik.VxlImgI32
-    st.session_state.original_VxlImgF32 = ik.VxlImgF32
+# Save references to original C++ classes directly from _core.voxlib
+core_mod = getattr(ik, "_core", None)
+voxlib_mod = getattr(core_mod, "voxlib", None) if core_mod else None
+if voxlib_mod and ("original_VxlImgU16" not in st.session_state or getattr(st.session_state.original_VxlImgU16, "__name__", "") == "PatchedClass"):
+    st.session_state.original_VxlImgU16 = voxlib_mod.VxlImgU16
+    st.session_state.original_VxlImgU8 = voxlib_mod.VxlImgU8
+    st.session_state.original_VxlImgI32 = voxlib_mod.VxlImgI32
+    st.session_state.original_VxlImgF32 = voxlib_mod.VxlImgF32
+
+
 
 def get_patched_class(original_cls, class_name):
     class PatchedClass(original_cls):

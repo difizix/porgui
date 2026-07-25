@@ -1,5 +1,7 @@
 # Agent Rules and Context
 
+Do not be rock headed: first try to understand the human request and interactions then create a plausible plan that quickly gets the issues resolved rather than getting stuck in an endless loop of tool usage. Once a while revisit your plan and revise if it takes too many iterations of tool usage.
+
 ### Pod runs
 
 The app may be run locally or as part of [image3kit/pods](https://github.com/image3kit/pods).
@@ -25,6 +27,6 @@ The root directory is mounted in podman, we can run the test script in podman im
 ## App Architecture and Development Notes
 - **Working Directory**: The workspace working directory is changed to the `runs/` folder at startup in `app.py` to prevent code execution outputs from cluttering the root `/app` directory.
 
-- **Image**: The app_func_img.py handles `.dat`, `.png`, `.am`, `.tif`/`.tiff`, and `.mhd`/`.raw` formats.
+- **Image**: The app_func_img.py is primarily used for interacting with image3kit.
 
-- **xdmf**: The app_func_net.py is used visualizing xdmf (.xmf) files using import pyvista as pv and stpyvista 
+- **xdmf**: The app_func_net.py is used interacting with xpm and snm git modules, and visualizing xdmf (.xmf) files using import pyvista as pv and stpyvista 

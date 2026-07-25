@@ -7,6 +7,8 @@ import io
 import contextlib
 from pathlib import Path
 
+from image3kit._core import ostream_redirect
+
 # This file shall not contain any streamlit related imports, those utilities go into app_common.py
 
 top_dir = Path(__file__).parent.resolve()
@@ -143,6 +145,26 @@ def get_module_func_args(module_name: str, argparse_func_name, main_func_name):
 
 
 
+def _first_overload_doc(doc: str) -> str:
+    """Reduce a pybind11 "Overloaded function." docstring to its first overload.
+
+    pybind11 free functions bound more than once under the same name (e.g. once
+    per dtype) get merged into one object whose docstring's first line is a
+    generic "name(*args, **kwargs)" placeholder followed by numbered overload
+    signatures - that placeholder has no parseable __text_signature__, so
+    inspect.signature() raises ValueError on it. Pull out overload "1." (its
+    signature line plus description) so it parses like a normal single-signature
+    doc via func_args_from_pybind_doc().
+    """
+    match = re.search(r"^\d+\.\s*(.+)$", doc, re.MULTILINE)
+    if not match:
+        return doc
+    rest = doc[match.end():]
+    next_match = re.search(r"\n\d+\.\s", rest)
+    body = rest[:next_match.start()] if next_match else rest
+    return match.group(1) + "\n" + body.strip()
+
+
 def func_args_from_inspect(func) -> dict:
     """Extract params from a fully-annotated Python function using inspect.
 
@@ -150,9 +172,15 @@ def func_args_from_inspect(func) -> dict:
     Use FileDropdown / ImageType from user_funcs.py as annotation types to
     get special Streamlit widgets instead of a plain text input.
 
+    Falls back to parsing the docstring's first overload for pybind11 builtins
+    bound more than once, which inspect.signature() cannot introspect.
+
     Returns {"params": [...], "desc": "..."} compatible with CURATED_METHODS.
     """
-    sig = inspect.signature(func)
+    try:
+        sig = inspect.signature(func)
+    except (ValueError, TypeError):
+        return func_args_from_pybind_doc(_first_overload_doc(func.__doc__ or ""))
     doc = inspect.getdoc(func) or ""
     params = []
     for name, param in sig.parameters.items():
@@ -306,10 +334,23 @@ def func_args_from_pybind_doc(doc: str) -> dict:
     lines = doc.strip().split("\n")
     desc = "\n".join(lines[1:]).strip().replace("\n", " ")
     first_line = lines[0]
-    match = re.match(r"^\w+\((.*)\)(?:\s*->\s*\w+)?", first_line)
-    if not match:
+    open_idx = first_line.find("(")
+    if open_idx == -1:
         return {"params": [], "desc": desc}
-    arg_list_str = match.group(1)
+    depth = 0
+    close_idx = None
+    for i in range(open_idx, len(first_line)):
+        ch = first_line[i]
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+            if depth == 0:
+                close_idx = i
+                break
+    if close_idx is None:
+        return {"params": [], "desc": desc}
+    arg_list_str = first_line[open_idx + 1:close_idx]
     parts = []
     current = []
     bracket_depth = 0
@@ -352,10 +393,10 @@ def func_args_from_pybind_doc(doc: str) -> dict:
             py_type = "int3"
         elif "dbl3" in type_str:
             py_type = "dbl3"
-        elif "int" in type_str or "SupportsInt" in type_str or "SupportsIndex" in type_str:
-            py_type = int
         elif "float" in type_str or "SupportsFloat" in type_str:
             py_type = float
+        elif "int" in type_str or "SupportsInt" in type_str or "SupportsIndex" in type_str:
+            py_type = int
         elif "Sequence" in type_str or "list" in type_str or "tuple" in type_str:
             py_type = list
         elif "dict" in type_str:
@@ -432,5 +473,6 @@ def run_capturing_output(func, *args, **kwargs):
     """
     stdout_buf = io.StringIO()
     with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stdout_buf):
-        result = func(*args, **kwargs)
+        with ostream_redirect(stdout=True, stderr=True):
+            result = func(*args, **kwargs)
     return result, stdout_buf.getvalue()

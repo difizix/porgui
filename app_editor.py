@@ -6,6 +6,7 @@ import shlex
 import io
 import traceback
 import glob
+from image3kit._core import ostream_redirect
 from utils_app import get_output_files
 
 # ----------------------------------------------------
@@ -35,7 +36,7 @@ def workflow_studio(st, ik, update_workspace_vars):
     options = script_files + ["➕ New File..."]
 
     # Consolidation bar at the top
-    col_select, col_args, col_actions = st.columns([1.5, 2, 1.5])
+    col_select, col_args, col_actions = st.columns([1.5, 2, 2])
     
     with col_select:
         selected_script = st.selectbox(
@@ -169,7 +170,8 @@ def workflow_studio(st, ik, update_workspace_vars):
             else:
                 _added_script_dir = False
             with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
-                exec(script_code, exec_namespace)
+                with ostream_redirect(stdout=True, stderr=True):
+                    exec(script_code, exec_namespace)
             
             captured_combined = stdout_buf.getvalue() + "\n" + stderr_buf.getvalue()
             st.session_state.console_output = captured_combined

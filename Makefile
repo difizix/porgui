@@ -10,6 +10,16 @@ help:
 
 .PHONY: build-snm build-xpm install-snm install-xpm clean-snm clean-xpm restartPodman
 
+VENV_DIR := $(shell \
+	if [ -d .venv ]; then echo .venv; \
+	elif [ -d ../.venv ]; then echo ../.venv; \
+	else echo $$HOME/miniforge3; fi)
+
+
+VENV_BIN := $(VENV_DIR)/bin
+PYTHON   := $(VENV_BIN)/python
+PIP      := $(VENV_BIN)/pip
+
 build-snm:
 	cmake -S snm -B snm/build -DCMAKE_BUILD_TYPE=Release
 	cmake --build snm/build -j4
@@ -19,10 +29,10 @@ build-xpm:
 	cmake --build xpm/build -j4
 
 install-snm: build-snm
-	cmake --install snm/build --prefix $$(python -c "import sys; print(sys.prefix)")
+	cmake --install snm/build --prefix $$(${PYTHON} -c "import sys; print(sys.prefix)")
 
 install-xpm: build-xpm
-	cmake --install xpm/build --prefix $$(python -c "import sys; print(sys.prefix)")
+	cmake --install xpm/build --prefix $$(${PYTHON} -c "import sys; print(sys.prefix)")
 
 clean-snm:
 	rm -rf snm/build
@@ -30,6 +40,9 @@ clean-snm:
 clean-xpm:
 	rm -rf xpm/build
 
+test:
+	${PYTHON} -m pytest 
+	
 restartPodman:
 	cd ../pods/compose && podman-compose build porsmgui
 	podman rm -f porsmgui || true

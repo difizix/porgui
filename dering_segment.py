@@ -1,15 +1,8 @@
-from __future__ import annotations
-
 import sys
 
 import numpy as np
 
 import image3kit as ik
-
-assert ik.__version__ >= "0.0.2", (
-    f"Expected image3kit version >= 0.0.2, got {ik.__version__}, please update image3kit with, e.g.\n"
-    "python -m pip install git+https://github.com/image3kit/image3kit.git"
-)
 
 
 def plotAll_save(img: ik.VxlImgU16, filename, save=True):
@@ -34,17 +27,13 @@ def desharpen(
     vsm = img.copy()
     vsh.bilateral_wide(kernel_radius=kernel_radius, x_step=steps, sigma_val=sigma_sh, sharpness=sharpness_sh)
     vsm.bilateral_wide(kernel_radius=kernel_radius+1, x_step=steps, sigma_val=sigma_sm, sharpness=sharpness_sm)
-    vsh.data[:] = (vsh.data+10000) - vsm.data
+    vsh.scaled_diff(vsm, "linear", shift3=10000) # vsh += 1000 - vsm
     delAvg = (vsm.data.astype(np.int32) - vsh.data.astype(np.int32)).mean()  # to avoid changing image brightness
     # convert to int32, substract the difference and convert back to uint16, to avoid overflow
     img.data[:] = np.maximum(img.data.astype(np.int32) + (vsm.data.astype(np.int32)-vsh.data.astype(np.int32)) - delAvg, 0).astype(np.uint16)
 
     printInfo("desharpen after:", img)
 
-
-def medianZ_iterate(img: ik.VxlImgU16, n_iter):
-    for _ in range(n_iter):
-        img.median_z()
 
 
 if __name__ == "__main__":
@@ -61,8 +50,12 @@ if __name__ == "__main__":
 
     plotAll_save(img, filename="volu_original", save=False)
 
-    medianZ_iterate(img, 5)
+    img.grow_box(1)
+    for _ in range(5):
+        img.median_z()
     img.median_filter()
+    img.shrink_box(1)
+
     plotAll_save(img, filename="volu_median")
 
     """Remove excessive sharpening artefacts whcih were probabbly added during image reconstruction"""
@@ -75,7 +68,7 @@ if __name__ == "__main__":
         x1=374, y1=853, # centres of ring artefact at end of image
         nr=1000, ntheta=32, nz=148, # adjust nr based on the width of ring artefacts (voxels)
         min_val=8500, max_val=12000, # range of voxel-values used to detect ring artefacts (usually this shall cover most of solid phase)
-        nGrowBox=20, # increase the image box to reduce filtering artefacts near image boundary
+        n_grow_box=20, # increase the image box to reduce filtering artefacts near image boundary
         write_dumps=False, # set to true if you want to see what is happening (see the C++ code!)
         # Other filtering parameters set to default
     )

@@ -24,6 +24,7 @@ STANDALONE_FUNCTIONS = {
 
 PYTHON_FUNCTIONS = {
     "read_image": read_image,
+    "threshold01_otsu": ik.threshold01_otsu,
     "mextract": mextract,
     "snflow": snflow,
 }
@@ -51,7 +52,7 @@ CURATED_METHODS = {
     "grow_box": get_vxlImg_func_args("grow_box"), 
     "shrink_box": get_vxlImg_func_args("shrink_box"), 
     "fill_holes": get_vxlImg_func_args("fill_holes"), 
-    "write_connected_pore_voxel": get_vxlImg_func_args("write_connected_pore_voxel"), 
+    "write_a_connected_void_voxel": get_vxlImg_func_args("write_a_connected_void_voxel"), 
     "and_": get_vxlImg_func_args("and_"), 
     "not_": get_vxlImg_func_args("not_"), 
     "or_": get_vxlImg_func_args("or_"),  
@@ -77,15 +78,14 @@ CURATED_METHODS = {
     "range_to": get_vxlImg_func_args("range_to"), 
     "replace_range": get_vxlImg_func_args("replace_range"), 
     "read_from_header": get_vxlImg_func_args("read_from_header"), 
-    "read_bin": get_vxlImg_func_args("read_bin"), 
-    "mode_n_same_neighbors": get_vxlImg_func_args("mode_n_same_neighbors"), 
+    "read_bin": get_vxlImg_func_args("read_bin"),
     "median_x": get_vxlImg_func_args("median_x"), 
     "median_y": get_vxlImg_func_args("median_y"), 
     "median_z": get_vxlImg_func_args("median_z"), 
-    "face_median06": get_vxlImg_func_args("face_median06"), 
-    "point_median032": get_vxlImg_func_args("point_median032"), 
-    "face_median_grow": get_vxlImg_func_args("face_median_grow"), 
-    "delense_0to32": get_vxlImg_func_args("delense_0to32"), 
+    "median06": get_vxlImg_func_args("median06"), 
+    "median032": get_vxlImg_func_args("median032"), 
+    "median06_grow": get_vxlImg_func_args("median06_grow"), 
+    "delense032": get_vxlImg_func_args("delense032"), 
     "circle_out": get_vxlImg_func_args("circle_out"), 
     "grow_label": get_vxlImg_func_args("grow_label"), 
     "keep_largest": get_vxlImg_func_args("keep_largest"), 
@@ -94,9 +94,10 @@ CURATED_METHODS = {
     "average_with": get_vxlImg_func_args("average_with"), 
     "average_with_skip_extremes": get_vxlImg_func_args("average_with_skip_extremes"), 
     "plot_all": get_vxlImg_func_args("plot_all"), 
+    "mode6": get_vxlImg_func_args("mode6"), 
     "mode26": get_vxlImg_func_args("mode26"), 
-    "_growing_threshold": get_vxlImg_func_args("_growing_threshold"), 
-    "_grow_outside_value": get_vxlImg_func_args("_grow_outside_value"), 
+    "growing_threshold": get_vxlImg_func_args("growing_threshold"), 
+    "grow_outside_value": get_vxlImg_func_args("grow_outside_value"), 
     "smooth_bilateral": get_vxlImg_func_args("smooth_bilateral"), 
     "plot_histogram": get_vxlImg_func_args("plot_histogram"), 
     "plot_z_profile": get_vxlImg_func_args("plot_z_profile"), 
@@ -155,13 +156,22 @@ def render_imgpro_tab():
         st.session_state.img_success = ""
     if "img_error" not in st.session_state:
         st.session_state.img_error = ""
+    if "img_nonimage_result" not in st.session_state:
+        st.session_state.img_nonimage_result = None
+    if "img_nonimage_result_func" not in st.session_state:
+        st.session_state.img_nonimage_result_func = None
+
+    core_module = getattr(ik, "_core", None)
+    voxlib_mod = getattr(core_module, "voxlib", None) if core_module else None
+    vxl_base = (getattr(voxlib_mod, "voxelImageTBase"),) if voxlib_mod and hasattr(voxlib_mod, "voxelImageTBase") else ()
 
     vxl_types = (
         st.session_state.original_VxlImgU16,
         st.session_state.original_VxlImgU8,
         st.session_state.original_VxlImgI32,
         st.session_state.original_VxlImgF32
-    )
+    ) + vxl_base
+
     if st.session_state.processed_image is not None and isinstance(st.session_state.processed_image, vxl_types) and "img" not in st.session_state.workspace_vars:
         st.session_state.workspace_vars["img"] = st.session_state.processed_image
 
@@ -357,6 +367,8 @@ def render_imgpro_tab():
             st.session_state.img_stdout = ""
             st.session_state.img_success = ""
             st.session_state.img_error = ""
+            st.session_state.img_nonimage_result = None
+            st.session_state.img_nonimage_result_func = None
             try:
                 is_python_func = selected_func in PYTHON_FUNCTIONS
                 if is_python_func:
@@ -402,19 +414,33 @@ def render_imgpro_tab():
                         st.session_state.active_var = var_name
                         st.session_state.pending_active_var = var_name
 
-                    args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                    command_line = f"{var_name} = {selected_func}({args_str})"
+                        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
+                        command_line = f"{var_name} = {selected_func}({args_str})"
+                        st.session_state.img_success = f"Executed `{selected_func}`, result stored as `{var_name}`."
+                    else:
+                        st.session_state.img_nonimage_result = result
+                        st.session_state.img_nonimage_result_func = selected_func
+                        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
+                        command_line = f"{selected_func}({args_str})"
+                        if result is None:
+                            st.session_state.img_success = f"Executed `{selected_func}` (no return value; nothing stored)."
+                        else:
+                            st.session_state.img_success = f"Executed `{selected_func}` — returned a non-image result (see right panel); nothing stored."
+
                     if st.session_state.session_commands:
                         st.session_state.session_commands += f"\n\n{command_line}"
                     else:
                         st.session_state.session_commands = command_line
 
-                    st.session_state.img_success = f"Executed `{selected_func}`, result stored as `{var_name}`."
                     st.rerun()
                 elif is_standalone:
                     def run_standalone():
                         _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
-                        return _func(**args)
+                        if _func:
+                            return _func(**args)
+                        else:
+                            print(f"{selected_func} not wired in!!!")
+                            return None
                     result, stdout = run_capturing_output(run_standalone)
                     st.session_state.img_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
                     
@@ -456,38 +482,62 @@ def render_imgpro_tab():
                     result, stdout = run_capturing_output(func_to_run, **args)
                     st.session_state.img_stdout = stdout.strip()
 
-                    # If result is VxlImg, use it, otherwise use run_obj
-                    if isinstance(result, (st.session_state.original_VxlImgU16,
-                                        st.session_state.original_VxlImgU8,
-                                        st.session_state.original_VxlImgI32,
-                                        st.session_state.original_VxlImgF32)):
+                    # If result is a new VxlImg, use it; if the method is a void in-place
+                    # mutator (result is None), use run_obj; otherwise it's a genuine
+                    # non-image result (e.g. stats) that shouldn't masquerade as an image.
+                    vxl_result_types = (
+                        st.session_state.original_VxlImgU16,
+                        st.session_state.original_VxlImgU8,
+                        st.session_state.original_VxlImgI32,
+                        st.session_state.original_VxlImgF32,
+                    )
+                    if isinstance(result, vxl_result_types):
                         raw_img = result
-                    else:
+                    elif result is None:
                         raw_img = run_obj
-
-                    # Wrap raw_img in its respective patched wrapper class to ensure consistency
-                    output_img = raw_img
-                    if isinstance(raw_img, st.session_state.original_VxlImgU16) and not isinstance(raw_img, ik.VxlImgU16):
-                        output_img = ik.VxlImgU16(raw_img)
-                    elif isinstance(raw_img, st.session_state.original_VxlImgU8) and not isinstance(raw_img, ik.VxlImgU8):
-                        output_img = ik.VxlImgU8(raw_img)
-                    elif isinstance(raw_img, st.session_state.original_VxlImgI32) and not isinstance(raw_img, ik.VxlImgI32):
-                        output_img = ik.VxlImgI32(raw_img)
-                    elif isinstance(raw_img, st.session_state.original_VxlImgF32) and not isinstance(raw_img, ik.VxlImgF32):
-                        output_img = ik.VxlImgF32(raw_img)
-
-                    # Save to workspace vars
-                    st.session_state.workspace_vars[out_var_name] = output_img
-                    st.session_state.processed_image = output_img
-                    st.session_state.active_var = out_var_name
-                    st.session_state.pending_active_var = out_var_name
-
-                    # Generate Python command line
-                    args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                    if copy_on_write:
-                        command_line = f"{out_var_name} = {target_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
                     else:
-                        command_line = f"{out_var_name} = {target_var}\n{out_var_name}.{selected_func}({args_str})"
+                        raw_img = None
+
+                    if raw_img is not None:
+                        # Wrap raw_img in its respective patched wrapper class to ensure consistency
+                        output_img = raw_img
+                        if isinstance(raw_img, st.session_state.original_VxlImgU16) and not isinstance(raw_img, ik.VxlImgU16):
+                            output_img = ik.VxlImgU16(raw_img)
+                        elif isinstance(raw_img, st.session_state.original_VxlImgU8) and not isinstance(raw_img, ik.VxlImgU8):
+                            output_img = ik.VxlImgU8(raw_img)
+                        elif isinstance(raw_img, st.session_state.original_VxlImgI32) and not isinstance(raw_img, ik.VxlImgI32):
+                            output_img = ik.VxlImgI32(raw_img)
+                        elif isinstance(raw_img, st.session_state.original_VxlImgF32) and not isinstance(raw_img, ik.VxlImgF32):
+                            output_img = ik.VxlImgF32(raw_img)
+
+                        # Save to workspace vars
+                        st.session_state.workspace_vars[out_var_name] = output_img
+                        st.session_state.processed_image = output_img
+                        st.session_state.active_var = out_var_name
+                        st.session_state.pending_active_var = out_var_name
+
+                        # Generate Python command line
+                        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
+                        if copy_on_write:
+                            command_line = f"{out_var_name} = {target_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
+                        else:
+                            command_line = f"{out_var_name} = {target_var}\n{out_var_name}.{selected_func}({args_str})"
+
+                        st.session_state.img_success = f"Successfully executed `{selected_func}`! Output stored as `{out_var_name}`."
+                    else:
+                        st.session_state.img_nonimage_result = result
+                        st.session_state.img_nonimage_result_func = selected_func
+
+                        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
+                        if copy_on_write:
+                            command_line = f"_tmp = {target_var}.copy()\nresult = _tmp.{selected_func}({args_str})"
+                        else:
+                            command_line = f"result = {target_var}.{selected_func}({args_str})"
+
+                        st.session_state.img_success = (
+                            f"Executed `{selected_func}` — returned a non-image result (see right panel); "
+                            "no new image variable was created."
+                        )
 
                     # Append to history
                     if st.session_state.session_commands:
@@ -495,7 +545,6 @@ def render_imgpro_tab():
                     else:
                         st.session_state.session_commands = command_line
 
-                    st.session_state.img_success = f"Successfully executed `{selected_func}`! Output stored as `{out_var_name}`."
                     st.rerun()
             except Exception as run_err:
                 st.session_state.img_error = f"{run_err}\n\n{traceback.format_exc()}"
@@ -580,3 +629,18 @@ def render_imgpro_tab():
                             st.image(str(plot_path), use_container_width=True)
         else:
             st.info("**No image loaded yet. Run a workflow or upload an image to begin.**")
+
+        # Non-image results from curated methods that returned a real value
+        # (e.g. otsu_threshold's [min, avg_0, threshold, avg_1, max] stats list).
+        if st.session_state.get("img_nonimage_result") is not None:
+            st.markdown("---")
+            func_label = st.session_state.get("img_nonimage_result_func") or "function"
+            st.markdown(f"##### 🔢 Function Result (`{func_label}`):")
+            _res = st.session_state.img_nonimage_result
+            if isinstance(_res, (list, tuple, dict)):
+                try:
+                    st.json(_res)
+                except Exception:
+                    st.write(_res)
+            else:
+                st.write(_res)
