@@ -210,7 +210,12 @@ def workflow_studio(st, ik, update_workspace_vars):
                 lf.write("# Status: ERROR\n\n")
                 lf.write(err_text)
 
+            # Absorb whatever the script did manage to build before it failed.
+            # Without this a script that dies partway (e.g. differential_imaging.py
+            # failing after rock_mask is computed) silently discards every
+            # variable it had already produced.
             update_workspace_vars(exec_namespace)
+
         finally:
             if _added_script_dir and script_dir in sys.path:
                 sys.path.remove(script_dir)

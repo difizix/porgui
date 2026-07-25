@@ -7,7 +7,7 @@ import PIL
 import sys
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args, run_capturing_output, FormParam
-from app_common import render_parseargs, resolve_object_args
+from app_common import render_parseargs, resolve_object_args, get_presenter, get_workspace
 from user_funcs import read_image, mextract, snflow
 
 # Ensure workspace root is in sys.path
@@ -161,29 +161,21 @@ def render_imgpro_tab():
     if "img_nonimage_result_func" not in st.session_state:
         st.session_state.img_nonimage_result_func = None
 
-    core_module = getattr(ik, "_core", None)
-    voxlib_mod = getattr(core_module, "voxlib", None) if core_module else None
-    vxl_base = (getattr(voxlib_mod, "voxelImageTBase"),) if voxlib_mod and hasattr(voxlib_mod, "voxelImageTBase") else ()
+    workspace = get_workspace()
+    vxl_types = workspace.image_types
 
-    vxl_types = (
-        st.session_state.original_VxlImgU16,
-        st.session_state.original_VxlImgU8,
-        st.session_state.original_VxlImgI32,
-        st.session_state.original_VxlImgF32
-    ) + vxl_base
-
-    if st.session_state.processed_image is not None and isinstance(st.session_state.processed_image, vxl_types) and "img" not in st.session_state.workspace_vars:
-        st.session_state.workspace_vars["img"] = st.session_state.processed_image
+    if workspace.processed_image is not None and isinstance(workspace.processed_image, vxl_types) and "img" not in workspace.vars:
+        workspace.store_var("img", workspace.processed_image)
 
     img = None
     col_v_ctrl, col_v_canvas = st.columns([2, 3])
 
     with col_v_ctrl:
 
-        var_options = [k for k, v in st.session_state.workspace_vars.items() if isinstance(v, vxl_types)]
+        var_options = workspace.image_vars()
         if var_options:
-            if "active_var" not in st.session_state or st.session_state.active_var not in var_options:
-                st.session_state.active_var = var_options[0]
+            if workspace.active_var not in var_options:
+                workspace.set_active(var_options[0])
 
             c1, c2 = st.columns([2, 3])
             with c1:
@@ -192,12 +184,12 @@ def render_imgpro_tab():
                 selected_var = st.selectbox(
                     "Select Viewed Image Variable",
                     var_options,
-                    index=var_options.index(st.session_state.active_var),
+                    index=var_options.index(workspace.active_var),
                     key="active_var_selectbox_widget",
                     label_visibility="collapsed"
                 )
-            st.session_state.active_var = selected_var
-            img = st.session_state.workspace_vars[selected_var]
+            workspace.set_active(selected_var)
+            img = workspace.get(selected_var)
         else:
             selected_var = None
 
@@ -218,20 +210,12 @@ def render_imgpro_tab():
                     with open(temp_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
                     try:
-                        if up_img_type == "VxlImgU16":
-                            loaded_obj = st.session_state.original_VxlImgU16(temp_path)
-                        elif up_img_type == "VxlImgU8":
-                            loaded_obj = st.session_state.original_VxlImgU8(temp_path)
-                        elif up_img_type == "VxlImgI32":
-                            loaded_obj = st.session_state.original_VxlImgI32(temp_path)
-                        else:
-                            loaded_obj = st.session_state.original_VxlImgF32(temp_path)
+                        loader = workspace.store[f"original_{up_img_type}"]
+                        loaded_obj = loader(temp_path)
 
                         cache_key = f"{up_img_type}_{os.path.abspath(temp_path)}"
-                        st.session_state.image_cache[cache_key] = loaded_obj
-                        st.session_state.workspace_vars[new_var_name] = loaded_obj
-                        st.session_state.processed_image = loaded_obj
-                        st.session_state.active_var = new_var_name
+                        workspace.image_cache[cache_key] = loaded_obj
+                        workspace.store_image(new_var_name, loaded_obj)
                         st.session_state.pending_active_var = new_var_name
                         st.success(f"Loaded {uploaded_file.name} as `{new_var_name}`!")
                         st.rerun()
@@ -328,15 +312,9 @@ def render_imgpro_tab():
             col_opt1, col_opt2 = st.columns([1, 1])
             with col_opt1:
                 ref_var = args.get("self") or args.get("image_var") or selected_var
-                default_out_name = f"{ref_var}_filtered" if ref_var else "img_filtered"
-                # Prevent overwriting existing workspace variables by making default name unique
-                if "workspace_vars" in st.session_state:
-                    base_name = default_out_name
-                    if base_name in st.session_state.workspace_vars:
-                        suffix = 1
-                        while f"{base_name}_{suffix}" in st.session_state.workspace_vars:
-                            suffix += 1
-                        default_out_name = f"{base_name}_{suffix}"
+                base_name = f"{ref_var}_filtered" if ref_var else "img_filtered"
+                # Suffix the default so it never silently overwrites an existing variable
+                default_out_name = workspace.unique_name(base_name)
                 out_var_name = st.text_input("Output Variable Name", value=default_out_name)
             with col_opt2:
                 copy_on_write = st.checkbox("Copy first (protect original image)", value=True, help="If unchecked, the operation is run in-place modifying the selected variable.")
@@ -369,186 +347,40 @@ def render_imgpro_tab():
             st.session_state.img_error = ""
             st.session_state.img_nonimage_result = None
             st.session_state.img_nonimage_result_func = None
-            try:
-                is_python_func = selected_func in PYTHON_FUNCTIONS
-                if is_python_func:
-                    func_to_call = PYTHON_FUNCTIONS[selected_func]
-                    # Extract the output variable name from the args if present
-                    var_name = args.pop("new_var_name", None) or out_var_name or selected_func
-                    filename = args.get("filename", "")
-                    if "filename" in args and not args["filename"]:
-                        st.error("Please select a file to load.")
-                        st.stop()
-                    result, stdout = run_capturing_output(func_to_call, **args)
-                    st.session_state.img_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
 
-                    is_vxl = (
-                        isinstance(result, (
-                            st.session_state.original_VxlImgU16,
-                            st.session_state.original_VxlImgU8,
-                            st.session_state.original_VxlImgI32,
-                            st.session_state.original_VxlImgF32,
-                            ik.VxlImgU16,
-                            ik.VxlImgU8,
-                            ik.VxlImgI32,
-                            ik.VxlImgF32,
-                        )) or (result is not None and "VxlImg" in type(result).__name__)
-                    )
-                    if is_vxl:
-                        raw_img = result
-                        output_img = raw_img
-                        if "U16" in type(raw_img).__name__ and not isinstance(raw_img, ik.VxlImgU16):
-                            output_img = ik.VxlImgU16(raw_img)
-                        elif "U8" in type(raw_img).__name__ and not isinstance(raw_img, ik.VxlImgU8):
-                            output_img = ik.VxlImgU8(raw_img)
-                        elif "I32" in type(raw_img).__name__ and not isinstance(raw_img, ik.VxlImgI32):
-                            output_img = ik.VxlImgI32(raw_img)
-                        elif "F32" in type(raw_img).__name__ and not isinstance(raw_img, ik.VxlImgF32):
-                            output_img = ik.VxlImgF32(raw_img)
+            presenter = get_presenter()
 
-                        result = output_img
-                        cache_key = f"{type(result).__name__}_{os.path.abspath(filename)}"
-                        st.session_state.image_cache[cache_key] = result
-                        st.session_state.workspace_vars[var_name] = result
-                        st.session_state.processed_image = result
-                        st.session_state.active_var = var_name
-                        st.session_state.pending_active_var = var_name
+            if selected_func in PYTHON_FUNCTIONS:
+                res = presenter.run_python_func(
+                    selected_func, PYTHON_FUNCTIONS[selected_func], args, out_var_name
+                )
+            elif is_standalone:
+                standalone_func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
+                res = presenter.run_standalone(selected_func, standalone_func, args)
+            else:
+                # "self" comes from the form; fall back to the viewed image
+                target_var = args.pop("self", None) or selected_var
+                # Object-typed args (e.g. alpha_image) arrive as variable names
+                args = resolve_object_args(args, params_meta, presenter.workspace.vars)
+                res = presenter.run_method(
+                    selected_func, target_var, args, copy_on_write, out_var_name
+                )
 
-                        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                        command_line = f"{var_name} = {selected_func}({args_str})"
-                        st.session_state.img_success = f"Executed `{selected_func}`, result stored as `{var_name}`."
-                    else:
-                        st.session_state.img_nonimage_result = result
-                        st.session_state.img_nonimage_result_func = selected_func
-                        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                        command_line = f"{selected_func}({args_str})"
-                        if result is None:
-                            st.session_state.img_success = f"Executed `{selected_func}` (no return value; nothing stored)."
-                        else:
-                            st.session_state.img_success = f"Executed `{selected_func}` — returned a non-image result (see right panel); nothing stored."
+            if res.invalid:
+                st.error(res.error)
+                st.stop()
 
-                    if st.session_state.session_commands:
-                        st.session_state.session_commands += f"\n\n{command_line}"
-                    else:
-                        st.session_state.session_commands = command_line
+            if res.ok:
+                st.session_state.img_stdout = res.stdout
+                st.session_state.img_success = res.success_msg
+                st.session_state.img_nonimage_result = res.nonimage_result
+                st.session_state.img_nonimage_result_func = res.nonimage_func
+                if res.stored_var:
+                    st.session_state.pending_active_var = res.stored_var
+            else:
+                st.session_state.img_error = res.error
+            st.rerun()
 
-                    st.rerun()
-                elif is_standalone:
-                    def run_standalone():
-                        _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
-                        if _func:
-                            return _func(**args)
-                        else:
-                            print(f"{selected_func} not wired in!!!")
-                            return None
-                    result, stdout = run_capturing_output(run_standalone)
-                    st.session_state.img_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
-                    
-                    args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                    command_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
-                        
-                    if st.session_state.session_commands:
-                        st.session_state.session_commands += f"\n\n{command_line}"
-                    else:
-                        st.session_state.session_commands = command_line
-                        
-                    st.session_state.img_success = f"Successfully executed standalone command `{selected_func}`!"
-                    st.rerun()
-                else:
-                    # Pop self from args if present, otherwise fallback to viewed image (selected_var)
-                    target_var = args.pop("self", None)
-                    if target_var:
-                        target_img = st.session_state.workspace_vars.get(target_var)
-                    else:
-                        target_var = selected_var
-                        target_img = st.session_state.workspace_vars.get(target_var) if target_var else None
-
-                    if target_img is None:
-                        st.error("No target image available to execute method on.")
-                        st.stop()
-
-                    # Prepare object to run on
-                    if copy_on_write:
-                        run_obj = target_img.copy()
-                    else:
-                        run_obj = target_img
-
-                    # Resolve any remaining object-typed args (e.g. alpha_image) from
-                    # workspace variable names to actual objects (or None)
-                    args = resolve_object_args(args, params_meta, st.session_state.workspace_vars)
-
-                    # Execute
-                    func_to_run = getattr(run_obj, selected_func)
-                    result, stdout = run_capturing_output(func_to_run, **args)
-                    st.session_state.img_stdout = stdout.strip()
-
-                    # If result is a new VxlImg, use it; if the method is a void in-place
-                    # mutator (result is None), use run_obj; otherwise it's a genuine
-                    # non-image result (e.g. stats) that shouldn't masquerade as an image.
-                    vxl_result_types = (
-                        st.session_state.original_VxlImgU16,
-                        st.session_state.original_VxlImgU8,
-                        st.session_state.original_VxlImgI32,
-                        st.session_state.original_VxlImgF32,
-                    )
-                    if isinstance(result, vxl_result_types):
-                        raw_img = result
-                    elif result is None:
-                        raw_img = run_obj
-                    else:
-                        raw_img = None
-
-                    if raw_img is not None:
-                        # Wrap raw_img in its respective patched wrapper class to ensure consistency
-                        output_img = raw_img
-                        if isinstance(raw_img, st.session_state.original_VxlImgU16) and not isinstance(raw_img, ik.VxlImgU16):
-                            output_img = ik.VxlImgU16(raw_img)
-                        elif isinstance(raw_img, st.session_state.original_VxlImgU8) and not isinstance(raw_img, ik.VxlImgU8):
-                            output_img = ik.VxlImgU8(raw_img)
-                        elif isinstance(raw_img, st.session_state.original_VxlImgI32) and not isinstance(raw_img, ik.VxlImgI32):
-                            output_img = ik.VxlImgI32(raw_img)
-                        elif isinstance(raw_img, st.session_state.original_VxlImgF32) and not isinstance(raw_img, ik.VxlImgF32):
-                            output_img = ik.VxlImgF32(raw_img)
-
-                        # Save to workspace vars
-                        st.session_state.workspace_vars[out_var_name] = output_img
-                        st.session_state.processed_image = output_img
-                        st.session_state.active_var = out_var_name
-                        st.session_state.pending_active_var = out_var_name
-
-                        # Generate Python command line
-                        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                        if copy_on_write:
-                            command_line = f"{out_var_name} = {target_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
-                        else:
-                            command_line = f"{out_var_name} = {target_var}\n{out_var_name}.{selected_func}({args_str})"
-
-                        st.session_state.img_success = f"Successfully executed `{selected_func}`! Output stored as `{out_var_name}`."
-                    else:
-                        st.session_state.img_nonimage_result = result
-                        st.session_state.img_nonimage_result_func = selected_func
-
-                        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                        if copy_on_write:
-                            command_line = f"_tmp = {target_var}.copy()\nresult = _tmp.{selected_func}({args_str})"
-                        else:
-                            command_line = f"result = {target_var}.{selected_func}({args_str})"
-
-                        st.session_state.img_success = (
-                            f"Executed `{selected_func}` — returned a non-image result (see right panel); "
-                            "no new image variable was created."
-                        )
-
-                    # Append to history
-                    if st.session_state.session_commands:
-                        st.session_state.session_commands += f"\n\n{command_line}"
-                    else:
-                        st.session_state.session_commands = command_line
-
-                    st.rerun()
-            except Exception as run_err:
-                st.session_state.img_error = f"{run_err}\n\n{traceback.format_exc()}"
-                st.rerun()
 
         # Display generated code block if available
         if st.session_state.generated_code:

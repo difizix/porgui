@@ -4,7 +4,7 @@ import sys
 from stpyvista import stpyvista
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, run_capturing_output, FormParam
-from app_common import render_parseargs, resolve_object_args
+from app_common import render_parseargs, resolve_object_args, get_presenter, get_workspace
 from user_funcs import render_xdmf_tubes, mextract, snflow, render_xdmf_3dl
 
 # Ensure workspace root is in sys.path
@@ -62,18 +62,20 @@ def render_pnm_tab():
     net_obj = None
     col_v_ctrl, col_v_canvas = st.columns([2, 3])
 
+    workspace = get_workspace()
+
     with col_v_ctrl:
         # Filter workspace_vars to find potential networks
         import pyvista as pv
         net_types = (pv.PolyData, pv.UnstructuredGrid)
-        var_options = [k for k, v in st.session_state.workspace_vars.items() if isinstance(v, net_types)]
+        var_options = workspace.vars_of_type(net_types)
         if var_options:
             c1, c2 = st.columns([2, 3])
             with c1:
                 st.markdown("<div style='padding-top: 6px;'><b>Active Network Variable:</b></div>", unsafe_allow_html=True)
             with c2:
                 selected_var = st.selectbox("Select Active Network Variable", var_options, index=0, key="net_active_var_selectbox", label_visibility="collapsed")
-            net_obj = st.session_state.workspace_vars[selected_var]
+            net_obj = workspace.get(selected_var)
         else:
             selected_var = None
 
@@ -88,7 +90,7 @@ def render_pnm_tab():
                     try:
                         import pyvista as pv
                         loaded_obj = pv.read(temp_path, force_ext='.xdmf')
-                        st.session_state.workspace_vars[new_var_name] = loaded_obj
+                        workspace.store_var(new_var_name, loaded_obj)
                         st.session_state.net_filenames[new_var_name] = temp_path
                         st.success(f"Loaded {uploaded_file.name} as `{new_var_name}`!")
                         st.rerun()
@@ -172,84 +174,35 @@ def render_pnm_tab():
             st.session_state.net_stdout = ""
             st.session_state.net_success = ""
             st.session_state.net_error = ""
-            try:
-                is_python_func = selected_func in PYTHON_FUNCTIONS
-                if is_python_func:
-                    func_to_call = PYTHON_FUNCTIONS[selected_func]
-                    var_name = args.pop("new_var_name", None) or out_var_name or selected_func
-                    filename = args.get("filename", "")
-                    if "filename" in args and not args["filename"]:
-                        st.error("Please select a file to load.")
-                        st.stop()
 
-                    result, stdout = run_capturing_output(func_to_call, **args)
-                    st.session_state.net_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
+            import pyvista as pv
 
-                    import pyvista as pv
-                    if isinstance(result, (pv.PolyData, pv.UnstructuredGrid)):
-                        st.session_state.workspace_vars[var_name] = result
-                        if filename:
-                            st.session_state.net_filenames[var_name] = filename
+            presenter = get_presenter()
 
-                    args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                    command_line = f"{var_name} = {selected_func}({args_str})"
-                    if st.session_state.session_commands:
-                        st.session_state.session_commands += f"\n\n{command_line}"
-                    else:
-                        st.session_state.session_commands = command_line
+            if selected_func in PYTHON_FUNCTIONS:
+                res = presenter.run_object_func(
+                    selected_func, PYTHON_FUNCTIONS[selected_func], args, out_var_name,
+                    store_types=(pv.PolyData, pv.UnstructuredGrid),
+                    filenames=st.session_state.net_filenames,
+                )
+            elif is_standalone:
+                standalone_func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
+                res = presenter.run_standalone(selected_func, standalone_func, args)
+            else:
+                target_var = args.pop("self", None) or selected_var
+                args = resolve_object_args(args, params_meta, presenter.workspace.vars)
+                res = presenter.run_object_method(selected_func, target_var, args)
 
-                    st.session_state.net_success = f"Executed `{selected_func}`, result stored as `{var_name}`."
-                    st.rerun()
-                elif is_standalone:
-                    def run_standalone():
-                        _func, _ = get_module_func_args(*STANDALONE_FUNCTIONS[selected_func])
-                        return _func(**args)
-                    result, stdout = run_capturing_output(run_standalone)
-                    st.session_state.net_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
+            if res.invalid:
+                st.error(res.error)
+                st.stop()
 
-                    args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                    command_line = f"import pyvtk.{selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
-                    if st.session_state.session_commands:
-                        st.session_state.session_commands += f"\n\n{command_line}"
-                    else:
-                        st.session_state.session_commands = command_line
-                    st.session_state.net_success = f"Successfully executed standalone command `{selected_func}`!"
-                    st.rerun()
-                else:
-
-                    
-                    target_var = args.pop("self", None)
-                    if target_var:
-                        run_obj = st.session_state.workspace_vars.get(target_var)
-                    else:
-                        target_var = selected_var
-                        run_obj = st.session_state.workspace_vars.get(target_var) if target_var else None
-
-                    if run_obj is None:
-                        st.error("No target network object available to execute method on.")
-                        st.stop()
-
-                    # Resolve any remaining object-typed args from workspace variable
-                    # names to actual objects (or None)
-                    args = resolve_object_args(args, params_meta, st.session_state.workspace_vars)
-
-                    func_to_run = getattr(run_obj, selected_func)
-                    result, stdout = run_capturing_output(func_to_run, **args)
-                    st.session_state.net_stdout = stdout.strip() # TODO add args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone)
-
-                    args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
-                    command_line = f"{target_var}.{selected_func}({args_str})"
-                    if st.session_state.session_commands:
-                        st.session_state.session_commands += f"\n\n{command_line}"
-                    else:
-                        st.session_state.session_commands = command_line
-
-                    st.session_state.net_success = f"Successfully executed `{selected_func}` in-place on `{target_var}`."
-                    st.rerun()
-            except Exception as run_err:
-                import traceback
-                st.session_state.net_error = f"{run_err}\n\n{traceback.format_exc()}"
-                st.rerun()
+            if res.ok:
+                st.session_state.net_stdout = res.stdout
+                st.session_state.net_success = res.success_msg
+            else:
+                st.session_state.net_error = res.error
+            st.rerun()
 
         if st.session_state.net_generated_code:
             st.markdown("---")
@@ -275,7 +228,7 @@ def render_pnm_tab():
         mesh = None
         xmf_path = None
         if selected_var:
-            val = st.session_state.workspace_vars[selected_var]
+            val = workspace.get(selected_var)
             if isinstance(val, (pv.PolyData, pv.UnstructuredGrid)):
                 # Already a PyVista mesh (e.g. result of render_xdmf_tubes)
                 mesh = val

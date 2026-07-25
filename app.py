@@ -105,26 +105,19 @@ except ImportError:
 
 
 def update_workspace_vars(namespace):
-    if "workspace_vars" not in st.session_state:
-        st.session_state.workspace_vars = {}
-    
-    # Extract any VxlImg variables from the namespace
-    core_mod = getattr(ik, "_core", None)
-    voxlib_mod = getattr(core_mod, "voxlib", None) if core_mod else None
-    vxl_base = getattr(voxlib_mod, "voxelImageTBase", tuple()) if voxlib_mod else tuple()
-    
-    for k, v in namespace.items():
-        if isinstance(v, (st.session_state.original_VxlImgU16,
-                          st.session_state.original_VxlImgU8,
-                          st.session_state.original_VxlImgI32,
-                          st.session_state.original_VxlImgF32,
-                          vxl_base)):
-            st.session_state.workspace_vars[k] = v
-            # Default active image to the last detected 'img' variable, or first detected image
-            if k == "img" or st.session_state.processed_image is None:
-                st.session_state.processed_image = v
-                st.session_state.active_var = k
-                st.session_state.active_var_selectbox_widget = k
+    """Absorb image variables from an executed script into the workspace.
+
+    The domain half lives in Workspace.absorb_namespace (unit tested in
+    tests/test_state_app.py); only syncing the selectbox widget key stays here,
+    since that is purely a streamlit concern.
+    """
+    from app_common import get_workspace
+
+    workspace = get_workspace()
+    absorbed = workspace.absorb_namespace(namespace)
+    if absorbed and workspace.active_var:
+        st.session_state.active_var_selectbox_widget = workspace.active_var
+    return absorbed
 
 # ----------------------------------------------------
 # TRANSPARENT MEMORY CACHING (Monkeypatching loader classes)
@@ -140,6 +133,9 @@ if voxlib_mod and ("original_VxlImgU16" not in st.session_state or getattr(st.se
     st.session_state.original_VxlImgU8 = voxlib_mod.VxlImgU8
     st.session_state.original_VxlImgI32 = voxlib_mod.VxlImgI32
     st.session_state.original_VxlImgF32 = voxlib_mod.VxlImgF32
+    # Common base of every VxlImg* type: catches images handed back straight
+    # from _core.voxlib that are not instances of the patched wrappers.
+    st.session_state.original_voxelImageTBase = getattr(voxlib_mod, "voxelImageTBase", None)
 
 
 

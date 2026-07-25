@@ -3,32 +3,71 @@ import streamlit as st
 import os
 import glob
 
+
+import presenters_app
+from state_app import SessionStore, Workspace
+
 OBJECT_DROPDOWN_TYPE_NAMES = ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "PolyData", "UnstructuredGrid")
 
 NONE_OPTION = "(none)"
 
+
+class StreamlitStore(SessionStore):
+    """SessionStore bound to the live st.session_state.
+
+    st.session_state is itself a MutableMapping, so the base class can wrap it
+    directly and writes land in the real session.
+    """
+
+    def __init__(self):
+        super().__init__(st.session_state)
+
+
+def get_workspace() -> Workspace:
+    """The Workspace for this session, created once and reused across reruns.
+
+    Workspace keeps no state of its own beyond the store, so rebuilding it on a
+    rerun is harmless - it re-attaches to the same session_state keys.
+    """
+    return Workspace(StreamlitStore())
+
+
+def image_wrappers() -> dict:
+    """Map each unpatched C++ image class to the caching subclass on ik.
+
+    app.py rebinds ik.VxlImg* to caching subclasses; results coming back from
+    image3kit are plain _core.voxlib instances, so they get re-wrapped through
+    this map to stay the caching kind. voxelImageTBase is deliberately absent:
+    it is the common base of all four and would match everything.
+    """
+    import image3kit as ik
+
+    store = get_workspace().store
+    pairs = (
+        (store.get("original_VxlImgU16"), ik.VxlImgU16),
+        (store.get("original_VxlImgU8"), ik.VxlImgU8),
+        (store.get("original_VxlImgI32"), ik.VxlImgI32),
+        (store.get("original_VxlImgF32"), ik.VxlImgF32),
+    )
+    return {base: wrapper for base, wrapper in pairs if base is not None}
+
+
+def get_presenter(wrappers=None) -> presenters_app.ExecutionPresenter:
+    if wrappers is None:
+        wrappers = image_wrappers()
+    return presenters_app.ExecutionPresenter(get_workspace(), wrappers=wrappers)
+
+
+# Both kept as thin wrappers over the framework-free implementations so the
+# existing call sites (and the OBJECT_DROPDOWN_TYPE_NAMES default) keep working.
 def is_object_dropdown_type(type_val):
-    if type_val == "var_dropdown":
-        return True
-    if isinstance(type_val, str):
-        return any(x in type_val for x in OBJECT_DROPDOWN_TYPE_NAMES)
-    if inspect.isclass(type_val):
-        return any(x in type_val.__name__ for x in OBJECT_DROPDOWN_TYPE_NAMES)
-    return False
+    return presenters_app.is_object_dropdown_type(type_val, OBJECT_DROPDOWN_TYPE_NAMES)
+
 
 def resolve_object_args(args_dict, params_meta, workspace_vars):
-    for p in params_meta:
-        p_name = p["name"]
-        if p_name == "self" or p_name not in args_dict:
-            continue
-        if is_object_dropdown_type(p["type"]):
-            val = args_dict[p_name]
-            if val:
-                args_dict[p_name] = workspace_vars.get(val)
-            else:
-                # "(none)" was selected: omit the kwarg so the bound function's own default applies
-                del args_dict[p_name]
-    return args_dict
+    return presenters_app.resolve_object_args(
+        args_dict, params_meta, workspace_vars, OBJECT_DROPDOWN_TYPE_NAMES
+    )
 
 def render_parseargs(params, key_prefix="", num_cols=2):
     args_dict = {}
