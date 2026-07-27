@@ -6,7 +6,7 @@ import image3kit as ik
 import PIL
 import sys
 
-from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args, run_capturing_output, FormParam
+from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args, render_stream_preformatted, FormParam
 from app_common import render_parseargs, resolve_object_args, get_presenter, get_workspace
 from user_funcs import read_image, mextract, snflow
 
@@ -337,7 +337,6 @@ def render_imgpro_tab():
             presenter = get_presenter()
             result_holder = {}
 
-            st.markdown("##### ⚙️ Streaming Execution Output...")
             if selected_func in PYTHON_FUNCTIONS:
                 stream_gen = presenter.run_python_func_stream(
                     selected_func, PYTHON_FUNCTIONS[selected_func], args, out_var_name, result_holder=result_holder
@@ -356,18 +355,21 @@ def render_imgpro_tab():
                     selected_func, target_var, args, copy_on_write, out_var_name, result_holder=result_holder
                 )
 
-            st.write_stream(stream_gen)
-            res = result_holder.get("result")
+            @st.dialog("⚙️ Streaming Execution Output", width="large")
+            def _run_dialog():
+                render_stream_preformatted(st, stream_gen)
+                res = result_holder.get("result")
 
-            if res:
-                if res.invalid:
-                    st.error(res.error)
-                    st.stop()
+                if res:
+                    if res.invalid:
+                        st.error(res.error)
+                        st.stop()
 
-                if res.ok and res.stored_var:
-                    st.session_state.pending_active_var = res.stored_var
-                st.session_state.img_result = res
-            st.rerun()
+                    if res.ok and res.stored_var:
+                        st.session_state.pending_active_var = res.stored_var
+                    st.session_state.img_result = res
+                st.rerun()
+            _run_dialog()
 
 
         # Display generated code block if available

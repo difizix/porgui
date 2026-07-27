@@ -3,7 +3,7 @@ import os
 import sys
 from stpyvista import stpyvista
 
-from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, run_capturing_output, FormParam
+from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, run_capturing_output, render_stream_preformatted, FormParam
 from app_common import render_parseargs, resolve_object_args, get_presenter, get_workspace
 from user_funcs import render_xdmf_tubes, mextract, snflow, render_xdmf_3dl
 
@@ -169,7 +169,6 @@ def render_pnm_tab():
             presenter = get_presenter()
             result_holder = {}
 
-            st.markdown("##### ⚙️ Streaming Execution Output...")
             if selected_func in PYTHON_FUNCTIONS:
                 stream_gen = presenter.run_object_func_stream(
                     selected_func, PYTHON_FUNCTIONS[selected_func], args, out_var_name,
@@ -189,16 +188,19 @@ def render_pnm_tab():
                     selected_func, target_var, args, result_holder=result_holder
                 )
 
-            st.write_stream(stream_gen)
-            res = result_holder.get("result")
+            @st.dialog("⚙️ Streaming Execution Output", width="large")
+            def _run_dialog():
+                render_stream_preformatted(st, stream_gen)
+                res = result_holder.get("result")
 
-            if res:
-                if res.invalid:
-                    st.error(res.error)
-                    st.stop()
+                if res:
+                    if res.invalid:
+                        st.error(res.error)
+                        st.stop()
 
-                st.session_state.net_result = res
-            st.rerun()
+                    st.session_state.net_result = res
+                st.rerun()
+            _run_dialog()
 
         if st.session_state.net_generated_code:
             st.markdown("---")

@@ -2,7 +2,7 @@ import os
 import glob
 from app_common import get_workspace
 from app_presenters import run_script, run_script_stream
-from utils_app import get_output_files
+from utils_app import get_output_files, render_stream_preformatted
 
 # ----------------------------------------------------
 # TAB 1: WORKFLOW STUDIO
@@ -134,25 +134,29 @@ def workflow_studio(st, ik):
         os.makedirs("fig", exist_ok=True)
 
         workspace = get_workspace()
-        st.markdown("##### ⚙️ Streaming Workflow Script Output...")
         result_holder = {}
-        st.write_stream(run_script_stream(selected_script, script_code, args_input, workspace, ik, result_holder))
-        result = result_holder.get("result")
+        stream_gen = run_script_stream(selected_script, script_code, args_input, workspace, ik, result_holder)
 
-        if result:
-            st.session_state.console_output = result.console_output
-            (st.success if result.ok else st.error)(result.message)
+        @st.dialog("⚙️ Streaming Workflow Script Output", width="large")
+        def _run_dialog():
+            render_stream_preformatted(st, stream_gen)
+            result = result_holder.get("result")
 
-            with open(result.log_path, "w") as lf:
-                lf.write(result.log_text)
+            if result:
+                st.session_state.console_output = result.console_output
+                (st.success if result.ok else st.error)(result.message)
 
-            if result.absorbed_vars and workspace.active_var:
-                st.session_state.active_var_selectbox_widget = workspace.active_var
+                with open(result.log_path, "w") as lf:
+                    lf.write(result.log_text)
 
-            pngs, logs = get_output_files()
-            st.session_state.png_files = pngs
-            st.session_state.log_files = logs
-        st.rerun()
+                if result.absorbed_vars and workspace.active_var:
+                    st.session_state.active_var_selectbox_widget = workspace.active_var
+
+                pngs, logs = get_output_files()
+                st.session_state.png_files = pngs
+                st.session_state.log_files = logs
+            st.rerun()
+        _run_dialog()
 
     # Render Console logs and Command History side-by-side below the editor
     col_hist, col_log = st.columns([1, 1])

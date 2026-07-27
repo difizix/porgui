@@ -510,6 +510,21 @@ def stream_process_output(cmd, cwd=None, env=None):
     process.wait()
 
 
+def render_stream_preformatted(st, stream_gen):
+    """Render a live-updating, preformatted (whitespace-preserving) view of a text stream.
+
+    Uses st.code() instead of st.write_stream()/Markdown so indentation, blank
+    lines, and exact line breaks from subprocess/print output aren't mangled.
+    Returns the full accumulated text once the generator is exhausted.
+    """
+    placeholder = st.empty()
+    chunks = []
+    for chunk in stream_gen:
+        chunks.append(chunk)
+        placeholder.code("".join(chunks), language="text")
+    return "".join(chunks)
+
+
 class _QueueWriter(io.StringIO):
     def __init__(self, q: queue.Queue):
         super().__init__()
