@@ -378,18 +378,6 @@ def render_imgpro_tab():
             st.markdown("##### 📋 Generated Python Code:")
             st.code(st.session_state.generated_code, language="python")
 
-        if img_result and img_result.stdout:
-            st.markdown("---")
-            st.markdown("##### 💬 Execution Output:")
-            st.code(img_result.stdout, language="text")
-
-        if img_result and img_result.success_msg:
-            st.success(img_result.success_msg)
-
-        if img_result and img_result.error:
-            st.error("Execution failed:")
-            st.code(img_result.error, language="text")
-
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")
 
@@ -452,6 +440,18 @@ def render_imgpro_tab():
                             st.image(str(plot_path), use_container_width=True)
         else:
             st.info("**No image loaded yet. Run a workflow or upload an image to begin.**")
+
+        if img_result and img_result.success_msg:
+            st.success(img_result.success_msg)
+
+        if img_result and img_result.error:
+            st.error("Execution failed:")
+            st.code(img_result.error, language="text")
+
+        if img_result and img_result.stdout:
+            st.markdown("---")
+            st.markdown("##### 💬 Execution Output:")
+            st.code(img_result.stdout, language="text")
 
         # Non-image results from curated methods that returned a real value
         # (e.g. otsu_threshold's [min, avg_0, threshold, avg_1, max] stats list).
