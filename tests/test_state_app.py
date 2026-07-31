@@ -1,12 +1,14 @@
 import os
 import sys
 
-# Ensure repository root is in sys.path
+# Ensure the porgui package directory is in sys.path (its modules use flat,
+# same-directory imports among themselves, e.g. `from utils_app import ...`).
 repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if not os.path.exists(repo_root) and os.path.exists("/app"):
     repo_root = "/app"
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
+porgui_dir = os.path.join(repo_root, "porgui")
+if porgui_dir not in sys.path:
+    sys.path.insert(0, porgui_dir)
 
 import image3kit as ik
 
@@ -40,7 +42,7 @@ def test_domain_layer_does_not_import_streamlit():
     check = subprocess.run(
         [sys.executable, "-c", "import app_state, app_presenters, utils_app, sys;"
                               " sys.exit(1 if 'streamlit' in sys.modules else 0)"],
-        cwd=repo_root,
+        cwd=porgui_dir,
     )
     assert check.returncode == 0, "a framework-free module imported streamlit"
 

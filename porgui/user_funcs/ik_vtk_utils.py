@@ -19,12 +19,6 @@ from vtkmodules.vtkRenderingCore import (
 
 import image3kit as ik
 
-assert ik.__version__ >= "0.0.2", (
-    f"Expected image3kit version >= 0.0.2, got {ik.__version__}, please update image3kit with, e.g.\n"
-    "python -m pip install git+https://github.com/image3kit/image3kit.git"
-)
-
-
 def plot_img3_contour_to_png(img: ik.VxlImgU16, threshold: float, filename: str):
     colors = vtkNamedColors()
 

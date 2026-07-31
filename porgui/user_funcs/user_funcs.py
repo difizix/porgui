@@ -105,7 +105,13 @@ def mextract(
 
     Outputs a network file (e.g., [OutputName]_ms.xmf) in the current directory.
     """
-    import pnmkit as nm
+    try:
+        import pnmkit as nm
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            "pnmkit is not installed — it is not bundled with porgui. "
+            "Install it manually to use mextract (see the porgui README)."
+        ) from None
     import streamlit as st
 
     if image_var not in st.session_state.workspace_vars:
@@ -141,7 +147,13 @@ def snflow( # We need to define more Anottated type aliases for the space-sepera
 
     Generates relative permeability and capillary pressure curves/plots.
     """
-    import pnmkit as nm
+    try:
+        import pnmkit as nm
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            "pnmkit is not installed — it is not bundled with porgui. "
+            "Install it manually to use snflow (see the porgui README)."
+        ) from None
     config = {
         "NetworkFile": NetworkFile,
         "OutputName": OutputName,

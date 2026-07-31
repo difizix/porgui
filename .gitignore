@@ -4,7 +4,8 @@ runs/*.log
 .venv/
 *.pyc
 __pycache__/
-
+*.egg-info/
+.vscode/
 
 # These are temporary, to allow for locally modified versions be bundeled,
 # we can install them from remote repo using pip withought cloning first here

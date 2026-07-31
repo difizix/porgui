@@ -2,6 +2,7 @@ import argparse
 import contextlib
 import inspect
 import io
+import os
 import queue
 import re
 import shlex
@@ -16,10 +17,18 @@ from image3kit._core import ostream_redirect
 
 # This file shall not contain any streamlit related imports, those utilities go into app_common.py
 
-top_dir = Path(__file__).parent.resolve()
+# This package's own directory (for sys.path, so the flat `import app_common`
+# style used throughout the app keeps working regardless of cwd).
+pkg_dir = Path(__file__).parent.resolve()
 
-if str(top_dir) not in sys.path:
-    sys.path.insert(0, str(top_dir))
+if str(pkg_dir) not in sys.path:
+    sys.path.insert(0, str(pkg_dir))
+
+# Workspace root: where runs/ (outputs, logs, plots) lives. Defaults to the
+# current working directory (so `porgui --serve` uses wherever the user
+# launched it from), overridable via PORGUI_WORKSPACE. Kept in sync with the
+# same default in app.py.
+top_dir = Path(os.environ.get("PORGUI_WORKSPACE", os.getcwd())).resolve()
 
 class FormParam:
     def __init__(self, name, default, has_default, type_val, help_text="", is_iterable=False):

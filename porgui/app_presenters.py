@@ -12,12 +12,9 @@ import os
 import shlex
 import sys
 import traceback
-from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
-from io import StringIO
 from typing import Any, Optional
 
-from image3kit._core import ostream_redirect
 
 from app_state import coerce_to_wrapper
 from utils_app import run_capturing_output, stream_callable_output

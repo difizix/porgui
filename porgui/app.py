@@ -2,12 +2,21 @@ import streamlit as st
 import os
 import sys
 
-# Ensure the original root directory is in sys.path before chdir
-root_dir = os.path.dirname(os.path.abspath(__file__))
-if root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
+# Ensure this package's own directory is in sys.path before chdir, so the
+# flat `import app_common`-style imports used throughout the app keep working.
+pkg_dir = os.path.dirname(os.path.abspath(__file__))
+if pkg_dir not in sys.path:
+    sys.path.insert(0, pkg_dir)
 
-# Change directory to runs/ to prevent writing any files to the root /app folder
+# Workspace root: where runs/ (outputs, logs, plots) lives. Defaults to the
+# current working directory (so `porgui --serve` uses wherever the user
+# launched it from), overridable via PORGUI_WORKSPACE. Streamlit re-executes
+# this whole script on every rerun, and we already chdir into workspace/runs
+# below, so os.getcwd() would return the wrong (already-chdir'ed) directory
+# on the second rerun onward — pin it in the environment on first run instead.
+root_dir = os.environ.setdefault("PORGUI_WORKSPACE", os.getcwd())
+
+# Change directory to runs/ to prevent writing any files to the workspace root
 os.makedirs(os.path.join(root_dir, "runs"), exist_ok=True)
 os.chdir(os.path.join(root_dir, "runs"))
 
@@ -196,13 +205,6 @@ if "filter_version" not in st.session_state:
 tabs = st.tabs(["💻 Workflow Editor", "🖼️ Image Processing", "🌐 Network Analysis", "📊 Saved Plots", "📄 Log Files"])
 
 # ----------------------------------------------------
-# TAB 2: INTERACTIVE VISUALIZER
-# ----------------------------------------------------
-with tabs[2]:
-    import app_func_net
-    app_func_net.render_pnm_tab()
-
-# ----------------------------------------------------
 # TAB 1: WORKFLOW EDITOR
 # ----------------------------------------------------
 with tabs[0]:
@@ -215,6 +217,13 @@ with tabs[0]:
 with tabs[1]:
     import app_func_img
     app_func_img.render_imgpro_tab()
+
+# ----------------------------------------------------
+# TAB 2: INTERACTIVE VISUALIZER
+# ----------------------------------------------------
+with tabs[2]:
+    import app_func_net
+    app_func_net.render_pnm_tab()
 
 # ----------------------------------------------------
 # TAB 3: SAVED PLOTS

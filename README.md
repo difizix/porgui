@@ -14,9 +14,9 @@ The GUI app consists of multiple tabs:
 
 1. workflow (python) script editor tab
 2. 2D visualization and interactive function executions tab
-3. 3D visualization tab based on pyvista for vtk/xdmf and OpenFOAM (TODO) output files
-4. log file browser tab
-5. svg/png image viewer tab
+3. log file browser tab
+4. svg/png image viewer tab
+5. DEV-ONLY: 3D visualization tab based on pyvista for vtk/xdmf and OpenFOAM (TODO) output files
 6. TODO: workflow / task management
 
 
@@ -40,15 +40,42 @@ For OpenFOAM, we need to run in containers/remotely, as they are not pip-install
 
 ### Log file browser
 
-Copied the `app_logs.py` from [image3kit/difizui](https://github.com/image3kit/agui), needs to be adapted to image3kit.
+Copied the `app_logs.py` from [image3kit/difgui](https://github.com/image3kit/agui), needs to be adapted to image3kit.
 
 ### SVG/PNG image viewer
 
-Copied the `app_plots.py` from [image3kit/difizui](https://github.com/image3kit/agui), needs to be adapted to image3kit.
+Copied the `app_plots.py` from [image3kit/difgui](https://github.com/image3kit/agui), needs to be adapted to image3kit.
 
 ---
 
-## GUI local installation:
+## Quick start (pip install, no manual clone, your own runs/*.py scripts)
+
+```bash
+# activate a venv, then run:
+pip install git+https://github.com/difizix/porgui.git
+porgui --serve
+```
+This opens `http://localhost:8501` in your browser automatically. Use
+`porgui --serve --port 8080` / `--host 0.0.0.0` / `--workspace /path/to/project` to
+change the port, bind address, or the directory `runs/` (outputs, logs, plots) is
+created under (defaults to the current directory). `python -m porgui --serve` works
+the same way.
+
+> [!NOTE]
+> Add your own scripts to the `runs` folder, see git repositoriy's [./runs](./runs) folder for examples.
+
+Note: `pip install porgui` is intentionally minimal and does not require `vtk`,
+`pyvista`/`stpyvista`, or `pnmkit`/`snm`/`xpm`:
+* Without `pyvista`/`stpyvista`, the **Network Analysis** tab shows a message telling
+  you to install them instead of loading (3D visualization needs pyvista). Run
+  `pip install "porgui[dev] @ git+https://github.com/difizix/porgui.git"` to pull in
+  `vtk`, `pyvista`, `stpyvista` and the other optional extras.
+* With `pyvista` installed but without `pnmkit`, the Network Analysis tab loads
+  normally, but functions that need `pnmkit` (`mextract`, `snflow`) show a message
+  telling you to install it manually — `pnmkit`/`snm`/`xpm` are never pip extras (see
+  below for the dev checkout).
+
+## GUI local installation (for dev, including pnmkit/snm/xpm):
 
 ```bash
 ## PNMkit dependencies:
@@ -58,11 +85,19 @@ sudo apt-get install libboost-all-dev libopenmpi-dev openmpi-bin
 python -m venv .venv
 # ⚠️ Uncomment pnmkit in requirements.txt
 .venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -e .
+```
+
+For installing XPM `core` branch, run:
+
+```bash
+git clone https://github.com/difizix/xpm
+.venv/bin/python -m pip install ./xpm
 ```
 
 Run GUI:
 ```bash
-.venv/bin/python -m streamlit run app.py
+.venv/bin/python -m streamlit run porgui/app.py
 ```
 then open http://localhost:8501 in your browser
 

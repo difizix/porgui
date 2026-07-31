@@ -38,7 +38,7 @@ def streamlit_server():
     port = _free_port()
     proc = subprocess.Popen(
         [
-            sys.executable, "-m", "streamlit", "run", "app.py",
+            sys.executable, "-m", "streamlit", "run", "porgui/app.py",
             "--server.port", str(port),
             "--server.address", "127.0.0.1",
             "--server.headless", "true",

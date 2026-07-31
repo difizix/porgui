@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import sys
-from stpyvista import stpyvista
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, run_capturing_output, render_stream_preformatted, FormParam
 from app_common import render_parseargs, resolve_object_args, get_presenter, get_workspace
@@ -46,6 +45,15 @@ for _pf_name, _pf_func in PYTHON_FUNCTIONS.items():
 # TAB 3: NETWORK ANALYSIS
 # ----------------------------------------------------
 def render_pnm_tab():
+    try:
+        import pyvista as pv
+    except ModuleNotFoundError:
+        st.info(
+            "pyvista is not installed — Network Analysis (3D visualization) is "
+            "unavailable. Install it manually to use this tab: `pip install pyvista stpyvista`."
+        )
+        return
+
     st.session_state.setdefault("net_generated_code", None)
     st.session_state.setdefault("net_filenames", {})
     st.session_state.setdefault("net_result", None)
@@ -58,7 +66,6 @@ def render_pnm_tab():
 
     with col_v_ctrl:
         # Filter workspace_vars to find potential networks
-        import pyvista as pv
         net_types = (pv.PolyData, pv.UnstructuredGrid)
         var_options = workspace.vars_of_type(net_types)
         if var_options:
@@ -291,7 +298,7 @@ def render_pnm_tab():
                 plotter.view_isometric()
 
                 # end of func pyvistaplot (to be implemented as a general function)
-
+                from stpyvista import stpyvista
                 stpyvista(plotter, key=f"net_pv_plot_{selected_var or 'default'}")
 
                 # Diagnostics expander

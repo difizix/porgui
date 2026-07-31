@@ -7,14 +7,26 @@ name = "porgui"
 version = "0.1.0"
 description = "PoreGUI app and utilities"
 requires-python = ">=3.9"
-dependencies = []
+dependencies = [
+    "image3kit",
+    "streamlit",
+    "streamlit_code_editor",
+    "Pillow"
+]
+
+[project.optional-dependencies]
+dev = ["vtk", "pyvista[jupyter]", "stpyvista", "scipy", "sqlalchemy", "imageio", "imageio-ffmpeg"]
+
+[project.scripts]
+porgui = "porgui.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["pnmkit*", "snm*", "xpm*"]
+include = ["porgui*"]
 
 [tool.pyright]
 extraPaths = [
     ".",
+    "porgui",
     "image3kit",
     "pnmkit",
     "snm",

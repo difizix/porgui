@@ -1,10 +1,14 @@
 import os
 import sys
 
-# Ensure repository root is in sys.path
+# Ensure the porgui package directory is in sys.path (its modules use flat,
+# same-directory imports among themselves, e.g. `from utils_app import ...`).
 repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
+if not os.path.exists(repo_root) and os.path.exists("/app"):
+    repo_root = "/app"
+porgui_dir = os.path.join(repo_root, "porgui")
+if porgui_dir not in sys.path:
+    sys.path.insert(0, porgui_dir)
 
 import image3kit as ik
 
