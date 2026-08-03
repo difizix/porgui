@@ -26,7 +26,7 @@ def make_workspace():
     store["original_VxlImgU8"] = VOXLIB.VxlImgU8
     store["original_VxlImgI32"] = VOXLIB.VxlImgI32
     store["original_VxlImgF32"] = VOXLIB.VxlImgF32
-    store["original_voxelImageTBase"] = VOXLIB.voxelImageTBase
+    store["original_VxlImgBase"] = VOXLIB.VoxelImagesBase
     return Workspace(store)
 
 
@@ -219,11 +219,11 @@ def test_absorb_namespace_keeps_images_built_before_a_script_failed():
 
 
 def test_image_types_includes_the_common_voxel_base_class():
-    """voxelImageTBase is what catches images returned straight from
+    """VoxelImagesBase is what catches images returned straight from
     _core.voxlib; dropping it from the tuple silently hides those results.
     """
     ws = make_workspace()
-    assert VOXLIB.voxelImageTBase in ws.image_types
+    assert VOXLIB.VoxelImagesBase in ws.image_types
 
 
 def test_workspace_tolerates_missing_image_type_registrations():

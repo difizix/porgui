@@ -266,7 +266,7 @@ def render_pnm_tab():
                 # to be implemented as a general function pyvistaplot
                 # Initialize Plotter
                 plotter = pv.Plotter(window_size=[500, 500])
-                plotter.background_color = "#0f172a"
+                plotter.background_color = pv.Color("#0f172a")
 
                 # Detect if the mesh is just 1D lines (needs line rendering)
                 is_line_mesh = False

@@ -89,7 +89,7 @@ class Workspace:
     """
 
     #: session keys holding the unpatched C++ classes, set up by app.py.
-    #: voxelImageTBase is the common base of every VxlImg* type, so it also
+    #: VoxelImagesBase is the common base of every VxlImg* type, so it also
     #: catches images returned straight from _core.voxlib (e.g. the VxlImgU8
     #: from threshold01_otsu) that are not instances of the patched wrappers.
     IMAGE_TYPE_KEYS = (
@@ -97,7 +97,7 @@ class Workspace:
         "original_VxlImgU8",
         "original_VxlImgI32",
         "original_VxlImgF32",
-        "original_voxelImageTBase",
+        "original_VxlImgBase",
     )
 
     def __init__(self, store=None):

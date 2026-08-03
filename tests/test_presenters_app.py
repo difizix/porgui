@@ -33,7 +33,7 @@ def make_workspace():
     store["original_VxlImgU8"] = VOXLIB.VxlImgU8
     store["original_VxlImgI32"] = VOXLIB.VxlImgI32
     store["original_VxlImgF32"] = VOXLIB.VxlImgF32
-    store["original_voxelImageTBase"] = VOXLIB.voxelImageTBase
+    store["original_VxlImgBase"] = VOXLIB.VoxelImagesBase
     return Workspace(store)
 
 

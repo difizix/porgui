@@ -81,7 +81,7 @@ def runPlotPNMs(tmp_path, mtd):
             p["Cycle1"] = f"{Swi} 1.0E+05 0.05 T T"
 
             sim = FlowSim(tag, f"Swi={Swi}, CA={CAp[0]}-{CAp[1]}", img_obj, mtd, clrSchem[0][ii], p)
-            sim.resSuffix = tag
+            sim.tag = tag
             simsAll.append(sim)
             simsPc.append(sim)
             simsSw[jj].append(sim)
@@ -113,9 +113,9 @@ if __name__ == "__main__":
     test_dir = Path(__file__).resolve().parent
 
     for mtd in [mSN, mXP]:
+        tmp_path = test_dir / f"run_tst_{mtd.name}"
         try:
             print(f"Running {mtd.name} test...")
-            tmp_path = test_dir / f"run_tst_{mtd.name}"
             shutil.rmtree(tmp_path, ignore_errors=True)
             tmp_path.mkdir(exist_ok=True)
             runPlotPNMs(Path(tmp_path), mtd)

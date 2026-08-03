@@ -51,7 +51,7 @@ def make_workspace():
     store["original_VxlImgU8"] = ik._core.voxlib.VxlImgU8
     store["original_VxlImgI32"] = ik._core.voxlib.VxlImgI32
     store["original_VxlImgF32"] = ik._core.voxlib.VxlImgF32
-    store["original_voxelImageTBase"] = ik._core.voxlib.voxelImageTBase
+    store["original_VxlImgBase"] = ik._core.voxlib.VoxelImagesBase
     return Workspace(store)
 
 

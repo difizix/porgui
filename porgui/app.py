@@ -129,7 +129,7 @@ if voxlib_mod and ("original_VxlImgU16" not in st.session_state or getattr(st.se
     st.session_state.original_VxlImgF32 = voxlib_mod.VxlImgF32
     # Common base of every VxlImg* type: catches images handed back straight
     # from _core.voxlib that are not instances of the patched wrappers.
-    st.session_state.original_voxelImageTBase = getattr(voxlib_mod, "voxelImageTBase", None)
+    st.session_state.original_VxlImgBase = getattr(voxlib_mod, "VoxelImagesBase", None)
 
 
 

@@ -58,7 +58,7 @@ def test_pyvista_screenshot():
     # render and save
     print(f"Rendering to {out_png} ...")
     plotter = pv.Plotter(off_screen=True, window_size=[1024, 1024])
-    plotter.background_color = "#0f172a"
+    plotter.background_color = pv.Color("#0f172a")
     plotter.add_mesh(tubes, scalars=var_name, cmap="viridis", show_scalar_bar=True)
     plotter.add_axes()
     plotter.view_isometric()

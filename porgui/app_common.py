@@ -37,7 +37,7 @@ def image_wrappers() -> dict:
 
     app.py rebinds ik.VxlImg* to caching subclasses; results coming back from
     image3kit are plain _core.voxlib instances, so they get re-wrapped through
-    this map to stay the caching kind. voxelImageTBase is deliberately absent:
+    this map to stay the caching kind. VoxelImagesBase is deliberately absent:
     it is the common base of all four and would match everything.
     """
     import image3kit as ik
