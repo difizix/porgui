@@ -44,8 +44,15 @@ test:
 	${PYTHON} -m pytest 
 	
 restartPodman:
-	cd ../pods/compose && podman-compose build porsmgui
+	cd ../infra/compose && podman-compose build porsmgui
 	podman rm -f porsmgui || true
-	cd ../pods/compose && podman-compose up -d porsmgui
-	cd ../pods/compose && podman-compose up -d --force-recreate pingapsrvr
+	cd ../infra/compose && podman-compose up -d porsmgui
+	cd ../infra/compose && podman-compose up -d --force-recreate pingapsrvr
 	podman ps -a
+
+injectSnm:
+	podman exec -t porsmgui bash -c "\
+	( [ -d snm ] || git clone https://github.com/difizix/snm.git ) && \
+	cmake -S /app/snm -B /app/snm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
+	cmake --build /app/snm/build -j$(nproc) && \
+	cmake --install /app/snm/build"

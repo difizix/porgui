@@ -183,7 +183,7 @@ def func_args_from_inspect(func) -> dict:
     """Extract params from a fully-annotated Python function using inspect.
 
     The function must have full type annotations on all parameters.
-    Use FileDropdown / ImageType from user_funcs.py as annotation types to
+    Use FileDropdown / ImageType from porgui.toolbox as annotation types to
     get special Streamlit widgets instead of a plain text input.
 
     Falls back to parsing the docstring's first overload for pybind11 builtins

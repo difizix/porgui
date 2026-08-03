@@ -1,6 +1,14 @@
 import streamlit as st
 import os
 import sys
+import multiprocessing
+
+# Set multiprocessing start method to 'fork' (Python 3.14+ changed default to 'forkserver'
+# which breaks stpyvista / trame process pickling of local functions).
+try:
+    multiprocessing.set_start_method("fork", force=True)
+except Exception:
+    pass
 
 # Ensure this package's own directory is in sys.path before chdir, so the
 # flat `import app_common`-style imports used throughout the app keep working.

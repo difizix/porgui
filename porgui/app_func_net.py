@@ -1,10 +1,16 @@
 import streamlit as st
 import os
 import sys
+import multiprocessing
+
+try:
+    multiprocessing.set_start_method("fork", force=True)
+except Exception:
+    pass
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, run_capturing_output, render_stream_preformatted, FormParam
 from app_common import render_parseargs, resolve_object_args, get_presenter, get_workspace
-from user_funcs import render_xdmf_tubes, mextract, snflow, render_xdmf_3dl
+from toolbox import render_xdmf_tubes, mextract, snflow, render_xdmf_3dl
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))

@@ -8,7 +8,7 @@ import sys
 
 from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args, render_stream_preformatted, FormParam
 from app_common import render_parseargs, resolve_object_args, get_presenter, get_workspace
-from user_funcs import read_image, mextract, snflow
+from toolbox import read_image, mextract, snflow
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))

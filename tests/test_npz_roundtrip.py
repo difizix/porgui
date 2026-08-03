@@ -1,15 +1,14 @@
-"""Round-trip test: VxlImgU16 → .npy → VxlImgU16 via user_funcs.loadImg.
+"""Round-trip test: VxlImgU16 → .npy → VxlImgU16 via toolbox.loadImg.
 
 Usage:
     python test_npz_roundtrip.py
 """
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "porgui"))
 
 import numpy as np
 import tempfile
 import image3kit as ik
-from user_funcs import read_image
+from porgui.toolbox import read_image
 
 DAT_FILE = "runs/Pak2D_240x200x1_5um.dat"
 

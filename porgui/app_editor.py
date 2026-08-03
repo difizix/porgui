@@ -28,22 +28,27 @@ def workflow_studio(st, ik):
 
     # Scan directory for workspace scripts
     script_files = sorted(glob.glob("*.py"))
-    options = script_files + ["➕ New File..."]
+    if script_files:
+        options = script_files + ["➕ New File..."]
+    else:
+        options = ["(No script found)", "➕ New File..."]
 
     # Consolidation bar at the top
     col_select, col_args, col_actions = st.columns([1.5, 2, 2])
-    
+
     with col_select:
         selected_script = st.selectbox(
-            "Select Workflow Script", 
-            options, 
+            "Select Workflow Script",
+            options,
             index=0 if "last_executed_script" not in st.session_state or st.session_state.last_executed_script not in options else options.index(st.session_state.last_executed_script),
             label_visibility="collapsed"
         )
         if selected_script == "➕ New File...":
             _new_file_dialog(st)
-            st.stop()
-        
+            selected_script = None
+        elif selected_script == "(No script found)":
+            selected_script = None
+
     with col_args:
         args_input = st.text_input(
             "Script CLI Arguments",
@@ -51,7 +56,7 @@ def workflow_studio(st, ik):
             placeholder="e.g. --x0 374 --y0 853",
             label_visibility="collapsed"
         )
-        
+
     with col_actions:
         btn_col1, btn_col2, btn_col3, btn_col4 = st.columns([1, 1, 1.2, 1.2])
         with btn_col1:
@@ -62,10 +67,13 @@ def workflow_studio(st, ik):
             show_cache = st.button("🗂️ Cache", key="cache_status_btn", width="stretch")
         with btn_col4:
             clear_cache = st.button("🧹 Clear", key="clear_cache_btn", width="stretch")
-            
+
     if save_pressed:
-        st.toast(f"Saved {selected_script} successfully!", icon="💾")
-    
+        if selected_script:
+            st.toast(f"Saved {selected_script} successfully!", icon="💾")
+        else:
+            st.warning("No script selected to save.")
+
     if clear_cache:
         if st.session_state.image_cache:
             for k in list(st.session_state.image_cache.keys()):
@@ -93,39 +101,42 @@ def workflow_studio(st, ik):
             st.info("No objects currently cached in RAM.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    if selected_script:
+    if selected_script and os.path.exists(selected_script):
         with open(selected_script, "r") as f:
             script_code = f.read()
     else:
         script_code = ""
 
-    try:
-        from code_editor import code_editor
-        response = code_editor(
-            script_code,
-            lang="python",
-            theme="monokai",
-            options={"wrap": True, "autoScrollEditorIntoView": True},
-            response_mode=["debounce", "blur"],
-            key=f"code_editor_{selected_script.replace('.', '_').replace('/', '__')}"
-        )
-        
-        # If the response contains new text (from blur or submit event), save it
-        new_text = response.get("text")
-        if new_text and new_text != script_code:
-            with open(selected_script, "w") as f:
-                f.write(new_text)
-            script_code = new_text
+    if selected_script:
+        try:
+            from code_editor import code_editor
+            response = code_editor(
+                script_code,
+                lang="python",
+                theme="monokai",
+                options={"wrap": True, "autoScrollEditorIntoView": True},
+                response_mode=["debounce", "blur"],
+                key=f"code_editor_{selected_script.replace('.', '_').replace('/', '__')}"
+            )
 
-        if response.get("type") == "submit":
-            pass # Explicit submit (Ctrl+S) handled above since text is updated
-            
-    except ImportError:
-        edited_code = st.text_area("Script Code Editor", value=script_code, height=450, key="fallback_editor")
-        if edited_code != script_code:
-            with open(selected_script, "w") as f:
-                f.write(edited_code)
-            script_code = edited_code
+            # If the response contains new text (from blur or submit event), save it
+            new_text = response.get("text")
+            if new_text and new_text != script_code:
+                with open(selected_script, "w") as f:
+                    f.write(new_text)
+                script_code = new_text
+
+            if response.get("type") == "submit":
+                pass # Explicit submit (Ctrl+S) handled above since text is updated
+
+        except ImportError:
+            edited_code = st.text_area("Script Code Editor", value=script_code, height=450, key="fallback_editor")
+            if edited_code != script_code:
+                with open(selected_script, "w") as f:
+                    f.write(edited_code)
+                script_code = edited_code
+    else:
+        st.info("💡 No workflow script selected. Select a script from the dropdown above or click **➕ New File...** to create one.")
 
     # Execution logic
     if run_pressed and selected_script:
@@ -160,12 +171,12 @@ def workflow_studio(st, ik):
 
     # Render Console logs and Command History side-by-side below the editor
     col_hist, col_log = st.columns([1, 1])
-    
+
     with col_hist:
         st.markdown('<div class="card-title" style="margin-top: 20px;">📜 Interactive Commands History</div>', unsafe_allow_html=True)
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.text_area("Executed Commands", value=st.session_state.session_commands, height=250, disabled=True, label_visibility="collapsed")
-        
+
         # Add button to insert history into editor
         col_clear_hist, col_append_hist = st.columns([1, 1])
         with col_clear_hist:
@@ -186,15 +197,15 @@ def workflow_studio(st, ik):
     with col_log:
         st.markdown('<div class="card-title" style="margin-top: 20px;">🖥️ Standard Output (stdout)</div>', unsafe_allow_html=True)
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        log_path = os.path.splitext(os.path.basename(selected_script))[0] + ".log"
-        if os.path.exists(log_path):
+        log_path = (os.path.splitext(os.path.basename(selected_script))[0] + ".log") if selected_script else None
+        if log_path and os.path.exists(log_path):
             with open(log_path, "r") as lf:
                 log_display = lf.read()
         else:
             log_display = st.session_state.console_output
-        
+
         if log_display and len(log_display) > 50000:
             log_display = log_display[-50000:] + "\n...[truncated for UI performance]"
-            
+
         st.text_area("Console Logs", value=log_display, height=250, disabled=True, label_visibility="collapsed")
         st.markdown('</div>', unsafe_allow_html=True)

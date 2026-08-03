@@ -8,14 +8,15 @@ version = "0.1.0"
 description = "PoreGUI app and utilities"
 requires-python = ">=3.9"
 dependencies = [
-    "image3kit",
+    "image3kit @ git+https://github.com/difizix/image3kit.git@wip/main",
+    "pnmkit @ git+https://github.com/difizix/pnmkit.git@wip/main",
     "streamlit",
     "streamlit_code_editor",
     "Pillow"
 ]
 
 [project.optional-dependencies]
-dev = ["vtk", "pyvista[jupyter]", "stpyvista", "scipy", "sqlalchemy", "imageio", "imageio-ffmpeg"]
+dev = ["vtk", "pyvista[jupyter]", "stpyvista", "scipy", "sqlalchemy", "imageio", "imageio-ffmpeg", "pytest", "playwright"]
 
 [project.scripts]
 porgui = "porgui.__main__:main"

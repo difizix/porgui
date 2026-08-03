@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-trixie
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -6,7 +6,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    cmake \
     ninja-build \
     git \
     libgl1 \
@@ -32,45 +31,36 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 WORKDIR /app
 
-# Cache step, just in case requirements.txt is changed
+
+# Cache step, keep in sync with pyproject.toml
 RUN pip install --no-cache-dir \
-    vtk \
     streamlit \
     streamlit_code_editor \
     Pillow \
-    pytest \
+    vtk \
+    cmake \
+    pyvista[jupyter] \
+    stpyvista \
     scipy \
     sqlalchemy \
     imageio \
     imageio-ffmpeg \
-    pyvista[jupyter] \
-    stpyvista
+    pytest \
+    playwright
 
 
+# Second least-frequently-changed file, for cache-friendliness
+COPY pyproject.toml /app/pyproject.toml
+RUN mkdir -p porgui && touch porgui/__init__.py && \
+    pip install --no-cache-dir -e ".[dev]"
 
-COPY image3kit /app/image3kit
-RUN pip install --no-cache-dir ./image3kit --config-settings=cmake.build-type=Release
+# Edit pyproject.toml to force an update of XPM
+RUN pip install --no-cache-dir git+https://github.com/difizix/xpm.git
 
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# NB! SNM is injected/updated via `make injectSnm`, which works when the container is started.
 
-# Build and install snm and xpm standalone executables
-COPY snm /app/snm
-RUN cmake -S /app/snm -B /app/snm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
-    cmake --build /app/snm/build -j$(nproc) && \
-    cmake --install /app/snm/build
-
-COPY xpm /app/xpm
-RUN cmake -S /app/xpm -B /app/xpm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
-    cmake --build /app/xpm/build -j$(nproc) && \
-    cmake --install /app/xpm/build
-
-# To be removed once pnmkit is stable
-# RUN git clone https://github.com/difizix/pnmkit.git pnmkit
-COPY pnmkit /app/pnmkit
-RUN pip install --no-cache-dir ./pnmkit --config-settings=cmake.build-type=Release
-
-COPY . /app
+# NB! /app is bind-mounted, so this is not used, see below
+COPY porgui /app/porgui
 
 EXPOSE 8501
 
@@ -78,4 +68,7 @@ CMD ["streamlit", "run", "porgui/app.py", "--server.port=8501", "--server.addres
 
 # , "--server.fileWatcherType=none"
 
-# podman build -t img3_ui  -f Dockerfile .
+# This image is not self-contained: app code (porgui/, tests/, etc.) is not
+# baked in and must be supplied via a bind mount at run time, e.g.:
+# podman build -t porsmgui -f Dockerfile .
+# podman run -v $PWD:/app:z -p 8501:8501 --rm --name porsmgui porsmgui

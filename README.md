@@ -12,13 +12,11 @@ The scripts are high-level and primarily cli-based that writes files into disk. 
 
 The GUI app consists of multiple tabs:
 
-1. workflow (python) script editor tab
-2. 2D visualization and interactive function executions tab
-3. log file browser tab
-4. svg/png image viewer tab
-5. DEV-ONLY: 3D visualization tab based on pyvista for vtk/xdmf and OpenFOAM (TODO) output files
-6. TODO: workflow / task management
-
+1. workflow (python) script editor tab 📝 ⭐⭐
+2. **2D visualization and interactive function executions tab** 🖼️ ⭐⭐⭐ *(Core)*
+3. log file browser tab 📄 ⭐
+4. svg/png image viewer tab 🎨 ⭐⭐
+5. DEV-ONLY: 3D visualization tab based on pyvista for vtk/xdmf and OpenFOAM (TODO) output files 🧊 ⭐⭐⭐ *(Core)*
 
 ### workflow (python) script editor tab
 
@@ -83,8 +81,6 @@ sudo apt-get install libboost-all-dev libopenmpi-dev openmpi-bin
 
 ## Set up virtual environment and install dependencies:
 python -m venv .venv
-# ⚠️ Uncomment pnmkit in requirements.txt
-.venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip install -e .
 ```
 
