@@ -8,6 +8,7 @@ below. ExecutionPresenter owns that logic once; the views only render the
 returned ExecResult.
 """
 
+import linecache
 import os
 import shlex
 import sys
@@ -549,15 +550,26 @@ def run_script_stream(script_path, script_code, args_input, workspace, ik, resul
     excepted = False
     tb_text = ""
 
+    filename = os.path.abspath(script_path) if script_path else "<string>"
+    lines = [line + "\n" for line in script_code.splitlines()]
+    linecache.cache[filename] = (len(script_code), None, lines, filename)
+
     def _exec_target():
         nonlocal exit_code, excepted, tb_text
         try:
-            exec(script_code, exec_namespace)
+            code_obj = compile(script_code, filename, "exec")
+            exec(code_obj, exec_namespace)
         except SystemExit as se:
             exit_code = se.code
-        except BaseException:
+        except BaseException as e:
             excepted = True
-            tb_text = traceback.format_exc()
+            _, _, tb = sys.exc_info()
+            if isinstance(e, SyntaxError):
+                tb_text = "".join(traceback.format_exception(e.with_traceback(None)))
+            elif tb and tb.tb_next:
+                tb_text = "".join(traceback.format_exception(e.with_traceback(tb.tb_next)))
+            else:
+                tb_text = traceback.format_exc()
         finally:
             sys.argv = original_argv
             sys.path[:] = original_path

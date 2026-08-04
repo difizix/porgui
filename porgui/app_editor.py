@@ -175,7 +175,7 @@ def workflow_studio(st, ik):
     with col_hist:
         st.markdown('<div class="card-title" style="margin-top: 20px;">📜 Interactive Commands History</div>', unsafe_allow_html=True)
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.text_area("Executed Commands", value=st.session_state.session_commands, height=250, disabled=True, label_visibility="collapsed")
+        st.code(st.session_state.session_commands or "# No commands executed in this session.", language="python")
 
         # Add button to insert history into editor
         col_clear_hist, col_append_hist = st.columns([1, 1])
@@ -207,5 +207,5 @@ def workflow_studio(st, ik):
         if log_display and len(log_display) > 50000:
             log_display = log_display[-50000:] + "\n...[truncated for UI performance]"
 
-        st.text_area("Console Logs", value=log_display, height=250, disabled=True, label_visibility="collapsed")
+        st.code(log_display or "# No console output yet.", language="text")
         st.markdown('</div>', unsafe_allow_html=True)

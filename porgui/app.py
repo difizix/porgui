@@ -46,7 +46,7 @@ st.markdown("""
         font-family: 'Outfit', sans-serif;
     }
     
-    code, pre, [class*="stCode"] {
+    code, pre, [class*="stCode"], div[data-testid="stTextArea"] textarea, textarea {
         font-family: 'JetBrains Mono', monospace !important;
     }
     .stMainBlockContainer {

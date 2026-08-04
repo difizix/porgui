@@ -332,3 +332,14 @@ def test_run_script_passes_workspace_variables_into_the_script():
     result = run_script("script.py", "assert wet is not None\nresult_ok = True\n", "", ws, ik)
 
     assert result.ok
+
+
+def test_run_script_traceback_omits_presenters_frame():
+    ws = make_workspace()
+    result = run_script("script.py", "a = 1.0\nx = a[0]\n", "", ws, ik)
+    assert not result.ok
+    assert "TypeError" in result.console_output
+    assert "x = a[0]" in result.console_output
+    assert "app_presenters.py" not in result.console_output
+    assert "_exec_target" not in result.console_output
+
