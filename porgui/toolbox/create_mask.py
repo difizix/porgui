@@ -3,14 +3,15 @@
 # these shall be made reusable functions for creating rock and tubig masks
 # from either a dry image or ideally from a wet image, or even better from both
 
-from image3kit import VxlImgU16
 import image3kit as ik
+from image3kit import VxlImgU16
+
 
 def create_tubing_mask(wetimg: VxlImgU16, dryimg: VxlImgU16):
 
     min_avg_thr_avg_max = wetimg.otsu_threshold(0, 65535)
     minerals = wetimg.blend_min_variance(dryimg, bgn=min_avg_thr_avg_max[2])
-    rock_mask = ik.threshold01_otsu(minerals)
+    ik.threshold01_otsu(minerals)
 # 	 echo "core and tube masks"
 #    run { /// tube mask  -- Tested
 

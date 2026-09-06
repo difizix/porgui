@@ -12,9 +12,9 @@ if porgui_dir not in sys.path:
     sys.path.insert(0, porgui_dir)
 
 import image3kit as ik
-from utils_app import stream_process_output, stream_callable_output
 from app_presenters import ExecutionPresenter, run_script_stream
 from app_state import DictStore, Workspace
+from utils_app import stream_callable_output, stream_process_output
 
 
 def test_stream_process_output():

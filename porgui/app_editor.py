@@ -1,8 +1,10 @@
-import os
 import glob
+import os
+
 from app_common import get_workspace
-from app_presenters import run_script, run_script_stream
+from app_presenters import run_script_stream
 from utils_app import get_output_files, render_stream_preformatted
+
 
 # ----------------------------------------------------
 # TAB 1: WORKFLOW STUDIO
@@ -91,7 +93,7 @@ def workflow_studio(st, ik):
         if st.session_state.image_cache or st.session_state.workspace_vars:
             if st.session_state.image_cache:
                 st.write("**Loader Image cache (monkeypatched paths):**")
-                for k in st.session_state.image_cache.keys():
+                for k in st.session_state.image_cache:
                     st.code(k)
             if st.session_state.workspace_vars:
                 st.write("**Interactive Workspace Variables:**")

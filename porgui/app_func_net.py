@@ -1,16 +1,28 @@
-import streamlit as st
+import multiprocessing
 import os
 import sys
-import multiprocessing
+
+import streamlit as st
 
 try:
     multiprocessing.set_start_method("fork", force=True)
 except Exception:
     pass
 
-from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, run_capturing_output, render_stream_preformatted, FormParam
-from app_common import render_parseargs, resolve_object_args, get_presenter, get_workspace
-from toolbox import render_xdmf_tubes, mextract, snflow, render_xdmf_3dl
+from app_common import (
+    get_presenter,
+    get_workspace,
+    render_parseargs,
+    resolve_object_args,
+)
+from toolbox import mextract, render_xdmf_3dl, render_xdmf_tubes, snflow
+from utils_app import (
+    FormParam,
+    args_to_cmd_line,
+    func_args_from_inspect,
+    get_module_func_args,
+    render_stream_preformatted,
+)
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -108,7 +120,7 @@ def render_pnm_tab():
         standalone_options = list(STANDALONE_FUNCTIONS.keys())
         available_standalones = [f for f in standalone_options if f in CURATED_METHODS]
         if net_obj is not None:
-            func_options = sorted(list(CURATED_METHODS.keys()))
+            func_options = sorted(CURATED_METHODS.keys())
         else:
             func_options = sorted(list(PYTHON_FUNCTIONS.keys()) + available_standalones)
 

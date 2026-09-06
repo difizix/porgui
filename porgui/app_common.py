@@ -1,10 +1,9 @@
-import inspect
-import streamlit as st
-import os
 import glob
-
+import inspect
+import os
 
 import app_presenters as presenters
+import streamlit as st
 from app_state import SessionStore, Workspace
 
 OBJECT_DROPDOWN_TYPE_NAMES = ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "PolyData", "UnstructuredGrid")
@@ -218,7 +217,7 @@ def render_parseargs(params, key_prefix="", num_cols=2):
                 for ext in extensions:
                     found_files.extend(glob.glob(ext))
                     found_files.extend(glob.glob(f"*/{ext}"))
-                found_files = sorted(list(set(found_files)))
+                found_files = sorted(set(found_files))
                 if not found_files:
                     st.warning("No compatible files found in runs/ directory.")
                     args_dict[p_name] = ""
@@ -231,7 +230,7 @@ def render_parseargs(params, key_prefix="", num_cols=2):
                 for ext in ["*.xmf", "*.xdmf"]:
                     found_files.extend(glob.glob(ext))
                     found_files.extend(glob.glob(f"*/{ext}"))
-                found_files = sorted(list(set(found_files)))
+                found_files = sorted(set(found_files))
                 if not found_files:
                     st.warning("No .xmf files found in runs/ directory.")
                     args_dict[p_name] = ""

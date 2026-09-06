@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import contextlib
 import inspect
@@ -11,7 +13,6 @@ import sys
 import threading
 import traceback
 from pathlib import Path
-from typing import Optional
 
 from image3kit._core import ostream_redirect
 
@@ -223,13 +224,13 @@ def func_args_from_inspect(func) -> dict:
 
 def args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_name, is_standalone):
     if is_standalone:
-        args_str = ", ".join(f"{k}={repr(v)}" for k, v in args.items())
+        args_str = ", ".join(f"{k}={v!r}" for k, v in args.items())
         cmd_line = f"import {selected_func} as {selected_func}\n{selected_func}.main()  # args: {args_str}"
     elif "self" in args:
         # Object method call (e.g. img.crop(...))
         target_var = args["self"] or selected_var
         other_args = {k: v for k, v in args.items() if k != "self"}
-        args_str = ", ".join(f"{k}={repr(v)}" for k, v in other_args.items())
+        args_str = ", ".join(f"{k}={v!r}" for k, v in other_args.items())
         if copy_on_write:
             cmd_line = f"{out_var_name} = {target_var}.copy()\n{out_var_name}.{selected_func}({args_str})"
         else:
@@ -240,7 +241,7 @@ def args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_n
         other_args = {k: v for k, v in args.items() if k != "new_var_name"}
         if other_args.get("max_nz") == -1:
             other_args.pop("max_nz", None)
-        args_str = ", ".join(f"{k}={repr(v)}" for k, v in other_args.items())
+        args_str = ", ".join(f"{k}={v!r}" for k, v in other_args.items())
         if var_name:
             cmd_line = f"{var_name} = {selected_func}({args_str})"
         else:
@@ -513,8 +514,7 @@ def stream_process_output(cmd, cwd=None, env=None):
     )
 
     if process.stdout:
-        for line in iter(process.stdout.readline, ''):
-            yield line
+        yield from iter(process.stdout.readline, '')
         process.stdout.close()
     process.wait()
 
@@ -548,7 +548,7 @@ class _QueueWriter(io.StringIO):
         pass
 
 
-def stream_callable_output(func, result_holder: Optional[dict] = None, *args, **kwargs):
+def stream_callable_output(func, result_holder: dict | None = None, *args, **kwargs):
     """Generator yielding stdout/stderr chunks live while executing func(*args, **kwargs).
 
     Captures final (result, full_output, error) into result_holder if provided.
@@ -575,7 +575,10 @@ def stream_callable_output(func, result_holder: Optional[dict] = None, *args, **
 
     t = threading.Thread(target=worker, daemon=True)
     try:
-        from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+        from streamlit.runtime.scriptrunner import (
+            add_script_run_ctx,
+            get_script_run_ctx,
+        )
         ctx = get_script_run_ctx()
         if ctx is not None:
             add_script_run_ctx(t, ctx)

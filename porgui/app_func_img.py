@@ -1,14 +1,25 @@
-import streamlit as st
 import os
-import numpy as np
-import traceback
-import image3kit as ik
-import PIL
 import sys
 
-from utils_app import get_module_func_args, args_to_cmd_line, func_args_from_inspect, get_vxlImg_func_args, render_stream_preformatted, FormParam
-from app_common import render_parseargs, resolve_object_args, get_presenter, get_workspace
-from toolbox import read_image, mextract, snflow
+import image3kit as ik
+import numpy as np
+import PIL
+import streamlit as st
+from app_common import (
+    get_presenter,
+    get_workspace,
+    render_parseargs,
+    resolve_object_args,
+)
+from toolbox import mextract, read_image, snflow
+from utils_app import (
+    FormParam,
+    args_to_cmd_line,
+    func_args_from_inspect,
+    get_module_func_args,
+    get_vxlImg_func_args,
+    render_stream_preformatted,
+)
 
 # Ensure workspace root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -261,7 +272,7 @@ def render_imgpro_tab():
         st.markdown('<div class="card-title">🛠️ Interactive Function Executor</div>', unsafe_allow_html=True)
 
         # Get list of functions
-        func_options = sorted(list(CURATED_METHODS.keys()))
+        func_options = sorted(CURATED_METHODS.keys())
         default_func = "read_image"
         default_idx = func_options.index(default_func) if default_func in func_options else 0
 

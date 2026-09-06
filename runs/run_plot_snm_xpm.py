@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 import image3kit as ik
+
 import pnmkit as nm
 from pnmkit.models import (
     FlowSim,
@@ -10,10 +11,10 @@ from pnmkit.models import (
     get_color_gradxy,
     mSN,  # snm wrapper
     mXP,  # xpm wrapper
-    plKr, # property: Kr
-    plPc, # property: Pc
-    plRI, # property: RI
-    pSgr, # property: Sgr
+    plKr,  # property: Kr
+    plPc,  # property: Pc
+    plRI,  # property: RI
+    pSgr,  # property: Sgr
 )
 from pnmkit.plots import plot_cycls, plot_props_compact, plot_si_sr
 

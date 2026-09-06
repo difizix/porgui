@@ -7,6 +7,7 @@ args, run it" and previously carried near-identical copies of the dispatch
 below. ExecutionPresenter owns that logic once; the views only render the
 returned ExecResult.
 """
+from __future__ import annotations
 
 import linecache
 import os
@@ -14,8 +15,7 @@ import shlex
 import sys
 import traceback
 from dataclasses import dataclass, field
-from typing import Any, Optional
-
+from typing import Any
 
 from app_state import coerce_to_wrapper
 from utils_app import run_capturing_output, stream_callable_output
@@ -65,10 +65,10 @@ class ExecResult:
     success_msg: str = ""
     error: str = ""
     command_line: str = ""
-    stored_var: Optional[str] = None
+    stored_var: str | None = None
     is_image: bool = False
     nonimage_result: Any = None
-    nonimage_func: Optional[str] = None
+    nonimage_func: str | None = None
     #: set when the run was rejected before executing (missing required input)
     invalid: bool = False
     extras: dict = field(default_factory=dict)
@@ -273,7 +273,7 @@ class ExecutionPresenter:
         return res
 
     # -- streaming variants ------------------------------------------------
-    def run_object_func_stream(self, name, func, args, out_var_name="", store_types=(), filenames=None, result_holder: Optional[dict] = None):
+    def run_object_func_stream(self, name, func, args, out_var_name="", store_types=(), filenames=None, result_holder: dict | None = None):
         if result_holder is None:
             result_holder = {}
         args = dict(args)
@@ -284,8 +284,7 @@ class ExecutionPresenter:
             return
 
         call_holder = {}
-        for chunk in stream_callable_output(lambda: func(**args), call_holder):
-            yield chunk
+        yield from stream_callable_output(lambda: func(**args), call_holder)
 
         error = call_holder.get("error")
         if error is not None:
@@ -306,7 +305,7 @@ class ExecutionPresenter:
         self.workspace.record_command(res.command_line)
         result_holder["result"] = res
 
-    def run_object_method_stream(self, name, target_var, args, result_holder: Optional[dict] = None):
+    def run_object_method_stream(self, name, target_var, args, result_holder: dict | None = None):
         if result_holder is None:
             result_holder = {}
         run_obj = self.workspace.get(target_var)
@@ -317,8 +316,7 @@ class ExecutionPresenter:
             return
 
         call_holder = {}
-        for chunk in stream_callable_output(lambda: getattr(run_obj, name)(**args), call_holder):
-            yield chunk
+        yield from stream_callable_output(lambda: getattr(run_obj, name)(**args), call_holder)
 
         error = call_holder.get("error")
         if error is not None:
@@ -339,7 +337,7 @@ class ExecutionPresenter:
         self.workspace.record_command(res.command_line)
         result_holder["result"] = res
 
-    def run_python_func_stream(self, name, func, args, out_var_name="", result_holder: Optional[dict] = None):
+    def run_python_func_stream(self, name, func, args, out_var_name="", result_holder: dict | None = None):
         if result_holder is None:
             result_holder = {}
         args = dict(args)
@@ -350,8 +348,7 @@ class ExecutionPresenter:
             return
 
         call_holder = {}
-        for chunk in stream_callable_output(lambda: func(**args), call_holder):
-            yield chunk
+        yield from stream_callable_output(lambda: func(**args), call_holder)
 
         error = call_holder.get("error")
         if error is not None:
@@ -386,7 +383,7 @@ class ExecutionPresenter:
         self.workspace.record_command(res.command_line)
         result_holder["result"] = res
 
-    def run_standalone_stream(self, name, func, args, import_prefix="pyvtk.", result_holder: Optional[dict] = None):
+    def run_standalone_stream(self, name, func, args, import_prefix="pyvtk.", result_holder: dict | None = None):
         if result_holder is None:
             result_holder = {}
         def call():
@@ -396,8 +393,7 @@ class ExecutionPresenter:
             return func(**args)
 
         call_holder = {}
-        for chunk in stream_callable_output(call, call_holder):
-            yield chunk
+        yield from stream_callable_output(call, call_holder)
 
         error = call_holder.get("error")
         if error is not None:
@@ -417,7 +413,7 @@ class ExecutionPresenter:
             success_msg=f"Successfully executed standalone command `{name}`!",
         )
 
-    def run_method_stream(self, name, target_var, args, copy_on_write=True, out_var_name="", result_holder: Optional[dict] = None):
+    def run_method_stream(self, name, target_var, args, copy_on_write=True, out_var_name="", result_holder: dict | None = None):
         if result_holder is None:
             result_holder = {}
         target_img = self.workspace.get(target_var)
@@ -429,8 +425,7 @@ class ExecutionPresenter:
         out_var_name = out_var_name or target_var
 
         call_holder = {}
-        for chunk in stream_callable_output(lambda: getattr(run_obj, name)(**args), call_holder):
-            yield chunk
+        yield from stream_callable_output(lambda: getattr(run_obj, name)(**args), call_holder)
 
         error = call_holder.get("error")
         if error is not None:
@@ -526,7 +521,7 @@ def run_script(script_path, script_code, args_input, workspace, ik) -> ScriptRun
     return ScriptRunResult(ok=False, message="No result produced.", console_output="", log_path="", log_text="")
 
 
-def run_script_stream(script_path, script_code, args_input, workspace, ik, result_holder: Optional[dict] = None):
+def run_script_stream(script_path, script_code, args_input, workspace, ik, result_holder: dict | None = None):
     """Execute a workflow script while streaming output live via yield generator.
 
     Stores ScriptRunResult in result_holder['result'].
@@ -575,8 +570,7 @@ def run_script_stream(script_path, script_code, args_input, workspace, ik, resul
             sys.path[:] = original_path
 
     call_holder = {}
-    for chunk in stream_callable_output(_exec_target, call_holder):
-        yield chunk
+    yield from stream_callable_output(_exec_target, call_holder)
 
     absorbed = workspace.absorb_namespace(exec_namespace)
     captured = call_holder.get("output", "")

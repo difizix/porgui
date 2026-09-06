@@ -1,8 +1,7 @@
 import sys
 
-import numpy as np
-
 import image3kit as ik
+import numpy as np
 
 
 def plotAll_save(img: ik.VxlImgU16, filename, save=True):

@@ -11,7 +11,6 @@ if porgui_dir not in sys.path:
     sys.path.insert(0, porgui_dir)
 
 import image3kit as ik
-
 from app_state import DictStore, SessionStore, Workspace, coerce_to_wrapper
 
 DATA_FILE = os.path.join(repo_root, "runs", "Pak2D_240x200x1_5um.dat")
@@ -40,8 +39,8 @@ def test_domain_layer_does_not_import_streamlit():
     import subprocess
 
     check = subprocess.run(
-        [sys.executable, "-c", "import app_state, app_presenters, utils_app, sys;"
-                              " sys.exit(1 if 'streamlit' in sys.modules else 0)"],
+        [sys.executable, "-c", ("import app_state, app_presenters, utils_app, sys;"
+                              " sys.exit(1 if 'streamlit' in sys.modules else 0)")],
         cwd=porgui_dir,
     )
     assert check.returncode == 0, "a framework-free module imported streamlit"

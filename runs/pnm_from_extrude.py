@@ -1,9 +1,10 @@
 import os
 import sys
 from pathlib import Path
-from file_utils import list_files
 
 import image3kit as ik
+from file_utils import list_files
+
 import pnmkit as nm
 
 # Setup paths
@@ -52,9 +53,10 @@ nm.snflow({
 list_files()
 
 import glob
+
 # Plot pores and throats raw.gz images using image3kit
 for filepath in glob.glob("extruded_pores_*.raw.gz") + glob.glob("extruded_throats_*.raw.gz"):
     print(f"Reading and plotting {filepath} ...")
     raw_img = ik.VxlImgI32(filepath)
-    base_name = filepath[:-7] if filepath.endswith(".raw.gz") else filepath
+    base_name = filepath.removesuffix(".raw.gz")
     raw_img.plot_all(f"{base_name}_", color=False, min_val=0, max_val=1, normal_axis="z", z_profile=False)

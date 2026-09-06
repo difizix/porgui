@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+
 def list_files(path=""):
 
     path = Path(path or Path.cwd())

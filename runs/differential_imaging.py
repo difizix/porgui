@@ -1,6 +1,7 @@
+from pathlib import Path
+
 import image3kit as ik
 
-from pathlib import Path
 assert Path('imgs/01_Dry_1316_1316_1087_16bit_6pt5um.raw').exists(), \
     "Please upload images from https:dx.doi.org/10.17612/6rtt-5w16 to imgs folder first"
 

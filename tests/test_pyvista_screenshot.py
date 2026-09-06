@@ -7,6 +7,7 @@ network_pn.xmf uses VTK_QUADRATIC_EDGE (cell type 21) — 3-node quadratic edges
 We linearize them to standard LINE cells (type 3) so vtkTubeFilter works.
 """
 import os
+
 import numpy as np
 import pytest
 import pyvista as pv
@@ -45,7 +46,7 @@ def test_pyvista_screenshot():
     poly.points = mesh_thr.points
     poly.lines  = lines
     # copy point data
-    for name in mesh_thr.point_data.keys():
+    for name in mesh_thr.point_data:
         poly.point_data[name] = mesh_thr.point_data[name]
 
     print(f"  PolyData: {poly.n_points} points, {poly.n_cells} lines")

@@ -14,8 +14,10 @@ if str(workspace_root) not in sys.path:
     sys.path.insert(0, str(workspace_root))
 
 import image3kit as ik
-import pnmkit as nm
 from img3gui.utils_app import STANDALONE_FUNCTIONS
+
+import pnmkit as nm
+
 
 def main():
     os.chdir(run_dir)

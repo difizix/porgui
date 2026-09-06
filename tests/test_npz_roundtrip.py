@@ -3,11 +3,11 @@
 Usage:
     python test_npz_roundtrip.py
 """
-import sys, os
-
-import numpy as np
+import os
 import tempfile
+
 import image3kit as ik
+import numpy as np
 from porgui.toolbox import read_image
 
 DAT_FILE = "runs/Pak2D_240x200x1_5um.dat"
@@ -41,7 +41,7 @@ def test_roundtrip():
     print("\n✅ All assertions passed.")
     print(f"   dtype  : {arr_orig.dtype}")
     print(f"   shape  : {arr_orig.shape}")
-    print(f"   values : match ✓")
+    print("   values : match ✓")
 
 
 if __name__ == "__main__":

@@ -11,7 +11,6 @@ if porgui_dir not in sys.path:
     sys.path.insert(0, porgui_dir)
 
 import image3kit as ik
-
 from app_presenters import (
     ExecutionPresenter,
     format_args,

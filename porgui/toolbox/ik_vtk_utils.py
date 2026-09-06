@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 
+import image3kit as ik
 import vtkmodules.vtkCommonDataModel
 import vtkmodules.vtkFiltersCore
 import vtkmodules.vtkRenderingOpenGL2
@@ -17,7 +18,6 @@ from vtkmodules.vtkRenderingCore import (
     vtkWindowToImageFilter,
 )
 
-import image3kit as ik
 
 def plot_img3_contour_to_png(img: ik.VxlImgU16, threshold: float, filename: str):
     colors = vtkNamedColors()
@@ -72,8 +72,8 @@ def plot_img3_contour_to_png(img: ik.VxlImgU16, threshold: float, filename: str)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(f"Usage:\npython {sys.argv[0]} <FILENAME.raw...>")  # noqa: T201
-        print(f"You need to edit {sys.argv[0]} first!")  # noqa: T201
+        print(f"Usage:\npython {sys.argv[0]} <FILENAME.raw...>")
+        print(f"You need to edit {sys.argv[0]} first!")
         sys.exit(1)
 
     filename = sys.argv[1]

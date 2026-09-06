@@ -42,10 +42,10 @@ def _readNpy(
     The array dtype auto-selects the VxlImg class.
     2-D arrays are promoted to (nx, ny, 1).
     """
+    import os
+
     import image3kit as ik
     import numpy as np
-    import tempfile
-    import os
 
     ext = os.path.splitext(filename)[-1].lower()
     if ext == ".npz":
@@ -187,8 +187,8 @@ def render_xdmf_tubes(
     them to standard LINE cells before applying the vtkTubeFilter.
     Mirrors the pipeline in pnmkit/xdmf_3dl_screenshot.py using PyVista.
     """
-    import pyvista as pv
     import numpy as np
+    import pyvista as pv
 
     print(f"[render_xdmf_tubes] Reading: {filename}")
     mesh = pv.read(filename, force_ext='.xdmf')
@@ -234,7 +234,7 @@ def render_xdmf_tubes(
     VTK_QUADRATIC_EDGE = 21
     cell_types = np.unique(mesh.celltypes).tolist()
     if VTK_QUADRATIC_EDGE in cell_types:
-        print(f"  Linearizing VTK_QUADRATIC_EDGE (type 21) cells ...")
+        print("  Linearizing VTK_QUADRATIC_EDGE (type 21) cells ...")
         n_cells = mesh.n_cells
         raw     = mesh.cells  # flat: [3, n0, n1, mid, ...]
         lines   = np.empty(n_cells * 3, dtype=np.intp)
@@ -244,7 +244,7 @@ def render_xdmf_tubes(
         poly = pv.PolyData()
         poly.points = mesh.points.copy()
         poly.lines  = lines
-        for name in mesh.point_data.keys():
+        for name in mesh.point_data:
             poly.point_data[name] = mesh.point_data[name].copy()
         print(f"  PolyData lines: {poly.n_points} points, {poly.n_cells} lines")
     else:
@@ -279,8 +279,8 @@ def render_xdmf_3dl(
     Pores are rendered as spheres of radius proportional to pore_scalar if xRadPore > 0.
     Throats are rendered as tubes of radius proportional to throat_scalar if xRadThroat > 0.
     """
-    import pyvista as pv
     import numpy as np
+    import pyvista as pv
 
     print(f"[render_xdmf_3dl] Reading: {filename}")
     mesh = pv.read(filename, force_ext='.xdmf')
@@ -343,9 +343,9 @@ def render_xdmf_3dl(
             poly = pv.PolyData()
             poly.points = mesh.points.copy()
             poly.lines  = lines
-            for name in mesh.point_data.keys():
+            for name in mesh.point_data:
                 poly.point_data[name] = mesh.point_data[name].copy()
-            for name in mesh.cell_data.keys():
+            for name in mesh.cell_data:
                 poly.cell_data[name] = mesh.cell_data[name].copy()
         else:
             poly = mesh.extract_all_edges()
