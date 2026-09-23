@@ -3,7 +3,7 @@ import sys
 
 import image3kit as ik
 import numpy as np
-import PIL
+from PIL import Image
 import streamlit as st
 from app_common import (
     get_presenter,
@@ -408,7 +408,7 @@ def render_imgpro_tab():
                     norm_slice = np.clip((slice_2d - min_contrast) / (max_contrast - min_contrast) * 255.0, 0, 255).astype(np.uint8)
                 else:
                     norm_slice = np.zeros_like(slice_2d, dtype=np.uint8)
-                pil_image = PIL.Image.fromarray(norm_slice)
+                pil_image = Image.fromarray(norm_slice)
                 st.image(
                     pil_image,
                     caption=f"`{axis.split()[0]}` @ `{slice_idx}` / `{max_slice}` │ color: `{int(min_contrast)}-{int(max_contrast)}` `{data.dtype}` │ span: `{shape}` × `{img.spacing}` + `{img.origin}`",

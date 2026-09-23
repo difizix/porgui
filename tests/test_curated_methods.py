@@ -38,3 +38,11 @@ def test_run_capturing_output_captures_cpp_stdout():
         return img
     _, out = run_capturing_output(load)
     assert "total_porosity" in out
+
+
+def test_app_func_img_pil_image_import():
+    from app_func_img import Image
+    import numpy as np
+    dummy = np.zeros((10, 10), dtype=np.uint8)
+    pil_img = Image.fromarray(dummy)
+    assert pil_img.size == (10, 10)

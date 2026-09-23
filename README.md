@@ -4,9 +4,16 @@
 
 * A streamlit-based dashboard for these pipelines.
 
-The dashboard is work in progress: so far [image3kit] and [pnmkit] functionality are barely usable.
-
 The scripts are high-level and primarily CLI-based scripts that write files to disk. The lower-level logic (C++ or python packages) is/shall be usable both interactively from GUI as well as from the CLI scripts, for replaying.
+
+> [!WARNING]
+> * **Experimental:** Unstable, main branch will be overwritten.
+>     * If you have made no changes, clone again!, or run `git fetch origin && git checkout FETCH_HEAD` followed by `git switch -C main` to update you local repo.
+> * **Experimental:** So far [image3kit] and [pnmkit] functionality are barely usable.
+> * Unpublished external dependencies.
+> * Demos may be moved out of this repo, they are web-UI compatible but commandline-first
+
+See Makefile for instructions on injecting the snm standalone apps to the docker container, while it is running.
 
 ## Features
 
@@ -74,6 +81,16 @@ Note: `pip install porgui` is intentionally minimal and does not require `vtk`,
   telling you to install it manually — `pnmkit`/`snm`/`xpm` are never pip extras (see
   below for the dev checkout).
 
+## Docker installation
+See Makefile for full instructions. In short, run the following commands to build and run the docker/podman container:
+
+```bash
+# cd PATH/TO/porgui
+PODMAN=docker # or =podman
+${PODMAN} build -t porsmgui -f Dockerfile .
+${PODMAN} run -v $PWD:/app:z -p 8501:8501 --rm --name porsmgui porsmgui
+```
+
 ## GUI local installation (for dev, including pnmkit/snm/xpm):
 
 ```bash
@@ -98,7 +115,18 @@ Run GUI:
 ```
 then open http://localhost:8501 in your browser
 
-### Current Examples, see [./runs](./runs)
+
+> [!NOTE]
+> **XPM Built-in Viewers**:
+> XPM includes its own specialized viewers tailored for 3D displacement monitoring and HPC workloads:
+> - **Remote Web Viewer** `scripts/serve_xpm_viewer_artifact.py`: A zero-dependency, WebGL-based browser UI for remote HPC/Slurm jobs (e.g. ARCHER2) via SSH tunnel `scripts/slurm/submit_xpm_viewer_artifact_server.sh`, supporting time-scrubbed invasion percolation playback, dynamic $P_c$ / $k_r$ curve synchronization, and dual-continuum (macro + Darcy microporosity) visualization.
+> - **Native Desktop GUI** (`xpm -V`): Qt6/VTK-based viewer for local datasets.
+> 
+> See the [xpm]'s  `docs/XPM_VIEWER_USER_GUIDE.md` and `scripts/slurm/README.md` for full instructions.
+>
+> In contrast, this repo is primarily targeted for learning and experimentation. Production workflows are typically run via commandline.
+
+## Current Examples, see [./runs](./runs)
 
 * [dering_segment.py](./runs/dering_segment.py)
     * Illustrates how to create new filters using NumPy: `desharpen` function
@@ -131,11 +159,8 @@ python  ik_vtk_utils.py  volume_467x1775x1480.am/NXxNYxNZ.raw
 
 ### CONTRIBUTING
 
-Please push your changes to a separate branch and open a pull request or let me know somehow. You are also welcome to create a github issue for discussing/proposing changes or new features.
+Please push your changes to a separate branch and open a pull request or let me know somehow. You are welcome to create a github issue for discussing/proposing changes or new features too.
 
-Before getting your hands dirty with code, check the other branches, in particular `wip/main`, which contains changes whose commit history is overwritten (via force push and rebase).
-
-The repo is mostly vibe-coded and is in pre-release (pre-alpha) state, so expect bugs, and missing features.
 
 <!-- References -->
 

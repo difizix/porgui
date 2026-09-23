@@ -32,10 +32,10 @@ build-xpm:
 	cmake --build xpm/build -j4
 
 install-snm: build-snm
-	cmake --install snm/build --prefix $$(${PYTHON} -c "import sys; print(sys.prefix)")
+	cmake --install snm/build --prefix `${PYTHON} -c "import sys; print(sys.prefix)"`
 
 install-xpm: build-xpm
-	cmake --install xpm/build --prefix $$(${PYTHON} -c "import sys; print(sys.prefix)")
+	cmake --install xpm/build --prefix `${PYTHON} -c "import sys; print(sys.prefix)"`
 
 clean-snm:
 	rm -rf snm/build
@@ -47,8 +47,8 @@ test:
 	${PYTHON} -m pytest 
 	
 runPodman:
-	$(PODMAN) build -t porsmgui -f Dockerfile .
-	$(PODMAN) run -v $$PWD:/app:z -p 8501:8501 --rm --name porsmgui porsmgui
+	${PODMAN} build -t porsmgui -f Dockerfile .
+	${PODMAN} run -v $$PWD:/app:z -p 8501:8501 --rm --name porsmgui porsmgui
 
 runDocker: runPodman
 runContainer: runPodman
@@ -56,8 +56,9 @@ restartPodman: runPodman
 
 injectSnm:
 	@echo Compiling and injecting snm into porsmgui container, contact for access.
-	$(PODMAN) exec -t porsmgui bash -c "\
-	( [ -d snm ] || git clone https://github.com/difizix/snm.git ) && \
+	( [ -d snm ] || git clone git@github.com:difizix/snm.git )
+	( [ -d image3kit ] || git clone git@github.com:difizix/image3kit.git )
+	${PODMAN} exec -t porsmgui bash -c "\
 	cmake -S /app/snm -B /app/snm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
-	cmake --build /app/snm/build -j$$(nproc) && \
+	cmake --build /app/snm/build -j 4 && \
 	cmake --install /app/snm/build"
