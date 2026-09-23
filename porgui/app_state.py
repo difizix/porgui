@@ -1,4 +1,4 @@
-"""Framework-independent session state and workspace model.
+"""GUI-framework-independent session state and workspace model.
 
 This file shall not contain any streamlit related imports, the adapter that
 binds SessionStore to st.session_state lives in app_common.py.

@@ -1,7 +1,7 @@
 """CLI entry point: `porgui --serve` (or `python -m porgui --serve`).
 
-Launches the Streamlit UI as a subprocess, exactly the way the Dockerfile
-already does (`streamlit run app.py ...`), so behavior stays predictable
+Launches the Streamlit UI as a subprocess, the same way Dockerfile
+does (`streamlit run porgui/app.py ...`), so behavior stays predictable
 across Streamlit versions.
 """
 import argparse

@@ -1,7 +1,7 @@
 """
 Test script: load network_pn.xmf, apply tube filter, save PNG screenshot.
 Run inside the podman container:
-    podman exec img3gui python test_pyvista_screenshot.py
+    podman exec porsmgui python tests/test_pyvista_screenshot.py
 
 network_pn.xmf uses VTK_QUADRATIC_EDGE (cell type 21) — 3-node quadratic edges.
 We linearize them to standard LINE cells (type 3) so vtkTubeFilter works.
@@ -10,7 +10,6 @@ import os
 
 import numpy as np
 import pytest
-import pyvista as pv
 
 xmf_file = "runs/run_tst_SNM/Pak2DExtruded_240x200x28_5p0um_pn.xmf"
 var_name  = "radius"
@@ -20,6 +19,9 @@ out_png   = "runs/fig/test_network_pn.png"
 
 @pytest.mark.skipif(not os.path.exists(xmf_file), reason=f"{xmf_file} does not exist")
 def test_pyvista_screenshot():
+
+    import pyvista as pv
+
     print(f"Reading {xmf_file} ...")
     mesh = pv.read(xmf_file, force_ext='.xdmf')
     print(f"  {mesh.n_points} points, {mesh.n_cells} cells, celltypes={np.unique(mesh.celltypes)}")

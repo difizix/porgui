@@ -6,14 +6,17 @@ help:
 	@echo "  install-xpm    - Install xpm executable to Python/active environment prefix"
 	@echo "  clean-snm      - Remove snm build directory"
 	@echo "  clean-xpm      - Remove xpm build directory"
-	@echo "  restartPodman  - Rebuild and restart the Podman container"
+	@echo "  restartPodman  - Rebuild and restart the container"
+	@echo "  runPodman      - Build and run container using Podman or Docker"
 
-.PHONY: build-snm build-xpm install-snm install-xpm clean-snm clean-xpm restartPodman
+.PHONY: build-snm build-xpm install-snm install-xpm clean-snm clean-xpm runPodman runDocker runContainer restartPodman injectSnm test help
+
+PODMAN ?= $(shell command -v podman 2>/dev/null || command -v docker 2>/dev/null || echo podman)
 
 VENV_DIR := $(shell \
 	if [ -d .venv ]; then echo .venv; \
 	elif [ -d ../.venv ]; then echo ../.venv; \
-	else echo $$HOME/miniforge3; fi)
+	else echo $$HOME/miniconda3; fi)
 
 
 VENV_BIN := $(VENV_DIR)/bin
@@ -43,16 +46,18 @@ clean-xpm:
 test:
 	${PYTHON} -m pytest 
 	
-restartPodman:
-	cd ../infra/compose && podman-compose build porsmgui
-	podman rm -f porsmgui || true
-	cd ../infra/compose && podman-compose up -d porsmgui
-	cd ../infra/compose && podman-compose up -d --force-recreate pingapsrvr
-	podman ps -a
+runPodman:
+	$(PODMAN) build -t porsmgui -f Dockerfile .
+	$(PODMAN) run -v $$PWD:/app:z -p 8501:8501 --rm --name porsmgui porsmgui
+
+runDocker: runPodman
+runContainer: runPodman
+restartPodman: runPodman
 
 injectSnm:
-	podman exec -t porsmgui bash -c "\
+	@echo Compiling and injecting snm into porsmgui container, contact for access.
+	$(PODMAN) exec -t porsmgui bash -c "\
 	( [ -d snm ] || git clone https://github.com/difizix/snm.git ) && \
 	cmake -S /app/snm -B /app/snm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
-	cmake --build /app/snm/build -j$(nproc) && \
+	cmake --build /app/snm/build -j$$(nproc) && \
 	cmake --install /app/snm/build"
