@@ -1,48 +1,49 @@
-## GUI and demos for pore-scale modelling codes
+# PorGUI: GUI and demos for pore-scale codes
 
 * Example python scripts for pore scale image processing and simulation.
 
 * A streamlit-based dashboard for these pipelines.
 
-The dashboard is work in progress: so far image3kit and pnmkit functioanlity are barely usable.
+The dashboard is work in progress: so far [image3kit] and [pnmkit] functionality are barely usable.
 
-The scripts are high-level and primarily cli-based that writes files into disk. The lower-level logic (C++ or python packages) is/shall be usable both interactively from GUI as well as from the cli scripts, for replaying.
+The scripts are high-level and primarily CLI-based scripts that write files to disk. The lower-level logic (C++ or python packages) is/shall be usable both interactively from GUI as well as from the CLI scripts, for replaying.
 
 ## Features
 
 The GUI app consists of multiple tabs:
 
-1. workflow (python) script editor tab 📝 ⭐⭐
-2. **2D visualization and interactive function executions tab** 🖼️ ⭐⭐⭐ *(Core)*
-3. log file browser tab 📄 ⭐
-4. svg/png image viewer tab 🎨 ⭐⭐
-5. DEV-ONLY: 3D visualization tab based on pyvista for vtk/xdmf and OpenFOAM (TODO) output files 🧊 ⭐⭐⭐ *(Core)*
+1. **💻 Workflow Editor** 📝 ⭐⭐: Python script editor with syntax highlighting, live execution, and image caching
+2. **🖼️ Image Processing** 🖼️ ⭐⭐⭐ *(Core)*: 2D slice visualization and interactive image3kit function execution
+3. **🌐 Network Analysis** 🧊 ⭐⭐⭐ *(Core)*: 3D visualization (pyvista) for VTK/XDMF/network models and pnmkit/xpm analysis
+4. **📊 Saved Plots** 🎨 ⭐⭐: SVG/PNG image viewer for generated plots and screenshots
+5. **📄 Log Files** 📄 ⭐: Output log file browser and inspector
 
-### workflow (python) script editor tab
+### 💻 Workflow Editor tab
 
 * Python code editor with syntax highlighting, and image caching
     * So far VxlImg (and Xdmf?) objects are cached, 
-    * TODO: do same for VTK/PyViz objects (Xdmf objects not usefull for visualization)
+    * TODO: do same for VTK/PyViz objects (Xdmf objects not useful for visualization)
 
+### 🖼️ Image Processing (2D visualization and interactive functions)
 
-### 2D visualization and interactive function executions
+* Interactive 2D slice visualizer and testing bench for `image3kit` functions.
 
-### 3D visualization
+### 🌐 Network Analysis (3D visualization)
 
-* The third step is to create a 3D visualization widget based on vtk, both for 3D countour surfaces as well as the pnmkit/Xdmf stack files.
+* 3D visualization widget based on pyvista/vtk, both for 3D contour surfaces as well as pnmkit/Xdmf network files.
 
 ### Task manager (TODO)
 
-TODO: The long-running workflows shall be launched in background with a lockfile that is used to monitor their pid and status. The task manager shall be used to view and cancel running workflows, also preventing same workflow from running twice. in the same directory.
+TODO: The long-running workflows shall be launched in background with a lockfile that is used to monitor their pid and status. The task manager shall be used to view and cancel running workflows, also preventing same workflow from running twice in the same directory.
 For OpenFOAM, we need to run in containers/remotely, as they are not pip-installable.
 
-### Log file browser
+### 📄 Log file browser
 
-Copied the `app_logs.py` from [image3kit/difgui](https://github.com/image3kit/agui), needs to be adapted to image3kit.
+Copied the `app_logs.py` from [difizix/difgui](https://github.com/difizix/difgui), needs to be adapted to image3kit.
 
-### SVG/PNG image viewer
+### 📊 Saved Plots (SVG/PNG image viewer)
 
-Copied the `app_plots.py` from [image3kit/difgui](https://github.com/image3kit/agui), needs to be adapted to image3kit.
+Copied the `app_plots.py` from [difizix/difgui](https://github.com/difizix/difgui), needs to be adapted to image3kit.
 
 ---
 
@@ -60,7 +61,7 @@ created under (defaults to the current directory). `python -m porgui --serve` wo
 the same way.
 
 > [!NOTE]
-> Add your own scripts to the `runs` folder, see git repositoriy's [./runs](./runs) folder for examples.
+> Add your own scripts to the `runs` folder, see git repository's [./runs](./runs) folder for examples.
 
 Note: `pip install porgui` is intentionally minimal and does not require `vtk`,
 `pyvista`/`stpyvista`, or `pnmkit`/`snm`/`xpm`:
@@ -114,23 +115,23 @@ python  dering_segment.py  volume_467x1775x1480.raw
 
 * [ik_vtk_utils.py](./runs/ik_vtk_utils.py)
     - Using VTK for offscreen 3D visualisation
-    - For now you got to edit ik_vtk_utils.py and and set the threshold and filename
+    - For now you got to edit ik_vtk_utils.py and set the threshold and filename
 ```bash
 python  ik_vtk_utils.py  volume_467x1775x1480.am/NXxNYxNZ.raw
 ```
 
-✅ You can lunch these from editor tab of the streamlit gui as well
+✅ You can launch these from editor tab of the streamlit gui as well
 
 ### TODO
 
-* Integrate with OpenFoam/GeoChemFoam ?
+* Integrate with OpenFOAM/GeoChemFoam ?
 * More integration with XPM
 
 
 
 ### CONTRIBUTING
 
-Please push your changes to a seperate branch and open a pull request or let me know somehow. You are also welcome to create a github issue for discussing/proposing changes or new features.
+Please push your changes to a separate branch and open a pull request or let me know somehow. You are also welcome to create a github issue for discussing/proposing changes or new features.
 
 Before getting your hands dirty with code, check the other branches, in particular `wip/main`, which contains changes whose commit history is overwritten (via force push and rebase).
 
@@ -138,4 +139,6 @@ The repo is mostly vibe-coded and is in pre-release (pre-alpha) state, so expect
 
 <!-- References -->
 
-[image3kit]: https://github.com/digiporflow/image3kit
+[image3kit]: https://github.com/DigiPorFlow/image3kit
+[pnmkit]: https://github.com/difizix/pnmkit
+[xpm]: https://github.com/difizix/xpm
