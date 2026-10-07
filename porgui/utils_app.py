@@ -7,7 +7,6 @@ import io
 import os
 import queue
 import re
-import shlex
 import subprocess
 import sys
 import threading
@@ -30,45 +29,6 @@ if str(pkg_dir) not in sys.path:
 # launched it from), overridable via PORGUI_WORKSPACE. Kept in sync with the
 # same default in app.py.
 top_dir = Path(os.environ.get("PORGUI_WORKSPACE", os.getcwd())).resolve()
-
-class FormParam:
-    def __init__(self, name, default, has_default, type_val, help_text="", is_iterable=False):
-        self.name = name
-        self.default = default
-        self.has_default = has_default
-        self.type_val = type_val
-        self.help_text = help_text
-        self.is_iterable = is_iterable
-
-# Used in difiz, why not here?
-def parser2uiparams(parser, fixedargs=None, selected_log_file=None, top_dir=None) -> list:
-    if fixedargs is None:
-        fixedargs = {}
-    actions = [a for a in parser._actions if a.dest != "help"]
-    ui_params = []
-    for action in actions:
-        p_name = action.dest
-        if p_name == "logfiles":
-            default = [str(top_dir / selected_log_file)] if (selected_log_file and top_dir) else []
-            is_iterable = True
-            type_val = list
-        elif p_name in fixedargs:
-            continue
-        else:
-            default = action.default
-            is_iterable = action.nargs in ("+", "*")
-            type_val = list if is_iterable else (action.type or (type(default) if default is not None else str))
-
-        ui_params.append(FormParam(
-            name=p_name,
-            default=default,
-            has_default=True,
-            type_val=type_val,
-            help_text=action.help or "",
-            is_iterable=is_iterable
-        ))
-    return ui_params
-
 
 def get_module_func_args(module_name: str, argparse_func_name, main_func_name):
     try:
@@ -275,67 +235,6 @@ def get_output_files(dir=top_dir/"runs"):
     png_files.sort(key=sort_key)
     log_files.sort(key=sort_key)
     return [str(p) for p in png_files], [str(p) for p in log_files]
-
-def dict2args(args_dict, iterables=None, sig=None, nokey=None, fixedargs=None) -> list:
-    if isinstance(iterables, str):
-        nokey = iterables
-        fixedargs = sig
-        iterables = None
-        sig = None
-
-    if nokey is not None or fixedargs is not None:
-        if fixedargs is None:
-            fixedargs = {}
-        argv = []
-        for k, v in args_dict.items():
-            if k == nokey:
-                argv.extend(v or [])
-            elif v is not None and v != "":
-                argv.extend([f"--{k}", str(v)])
-        for k, v in fixedargs.items():
-            option_flag = f"--{k}"
-            if option_flag not in argv:
-                argv.extend([option_flag, str(v) if v is not None else ""])
-        return argv
-
-    if iterables is None:
-        iterables = []
-    cmd_parts = []
-    for p_name, val in args_dict.items():
-        flag_name = p_name.replace("_", "-")
-        if p_name in iterables:
-            if val:
-                for item in val:
-                    cmd_parts.append(f"--{flag_name} {shlex.quote(str(item))}")
-        elif isinstance(val, bool):
-            if val:
-                cmd_parts.append(f"--{flag_name}")
-            elif sig and p_name in sig.parameters and sig.parameters[p_name].default is True:
-                cmd_parts.append(f"--no-{flag_name}")
-        else:
-            if val == "" or val is None or str(val).strip().lower() == "none":
-                continue
-            cmd_parts.append(f"--{flag_name} {shlex.quote(str(val))}")
-    return cmd_parts
-
-def filter_by_search_query(file_list, query_str):
-    if not query_str or not query_str.strip():
-        return list(file_list), False
-
-    filtered = list(file_list)
-    terms = query_str.split()
-    has_error = False
-
-    for term in terms:
-        try:
-            pattern = re.compile(term.strip(), re.IGNORECASE)
-            filtered = [f for f in filtered if pattern.search(str(f))]
-        except re.error:
-            has_error = True
-            filtered = []
-            break
-
-    return filtered, has_error
 
 
 def func_args_from_pybind_doc(doc: str) -> dict:

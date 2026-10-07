@@ -1,6 +1,7 @@
 import multiprocessing
 import os
 import sys
+from pathlib import Path
 
 import streamlit as st
 
@@ -210,40 +211,18 @@ if "filter_version" not in st.session_state:
     st.session_state.filter_version = 0
 
 
-# Main Tab Layout
-tabs = st.tabs(["💻 Workflow Editor", "🖼️ Image Processing", "🌐 Network Analysis", "📊 Saved Plots", "📄 Log Files"])
+# ----------------------------------------------------
+# PAGES: each module is imported only when its page is opened
+# ----------------------------------------------------
+from app_logs import refresh_outputs  # noqa: E402
+from uiutils.streamlit.pages import page  # noqa: E402
 
-# ----------------------------------------------------
-# TAB 1: WORKFLOW EDITOR
-# ----------------------------------------------------
-with tabs[0]:
-    import app_editor
-    app_editor.workflow_studio(st, ik)
-
-# ----------------------------------------------------
-# TAB 2: INTERACTIVE VISUALIZER
-# ----------------------------------------------------
-with tabs[1]:
-    import app_func_img
-    app_func_img.render_imgpro_tab()
-
-# ----------------------------------------------------
-# TAB 2: INTERACTIVE VISUALIZER
-# ----------------------------------------------------
-with tabs[2]:
-    import app_func_net
-    app_func_net.render_pnm_tab()
-
-# ----------------------------------------------------
-# TAB 3: SAVED PLOTS
-# ----------------------------------------------------
-with tabs[3]:
-    import app_plots
-    app_plots.render_plots()
-
-# ----------------------------------------------------
-# TAB 4: LOG FILES
-# ----------------------------------------------------
-with tabs[4]:
-    import app_logs
-    app_logs.render_logs()
+PAGES = [
+    page("app_editor:workflow_studio", "Workflow Editor", "💻", "editor", default=True, args=(st, ik)),
+    page("app_func_img:render_imgpro_tab", "Image Processing", "🖼️", "image"),
+    page("app_func_net:render_pnm_tab", "Network Analysis", "🌐", "network"),
+    page("app_plots:render_plots", "Saved Plots", "📊", "plots"),
+    page("app_logs:render_logs", "Log Files", "📄", "logs"),
+    page("uiutils.streamlit.page_make:render_make", "Make", "🛠️", "make", args=(Path(root_dir), refresh_outputs)),
+]
+st.navigation(PAGES, position="top").run()

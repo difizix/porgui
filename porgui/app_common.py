@@ -5,6 +5,7 @@ import os
 import app_presenters as presenters
 import streamlit as st
 from app_state import SessionStore, Workspace
+from uiutils.streamlit.forms import render_param
 
 OBJECT_DROPDOWN_TYPE_NAMES = ("VxlImgU16", "VxlImgU8", "VxlImgI32", "VxlImgF32", "VxlImg", "PolyData", "UnstructuredGrid")
 
@@ -78,44 +79,14 @@ def render_parseargs(params, key_prefix="", num_cols=2):
         col = cols[idx % num_cols]
         p_name = param.name
         default = param.default
-        has_default = param.has_default
         is_iterable = param.is_iterable
         type_val = param.type_val
         help_text = getattr(param, "help_text", "")
         widget_key = f"{key_prefix}_{p_name}"
 
         with col:
-            if is_iterable:
-                default_str = ""
-                if has_default and default:
-                    if isinstance(default, (list, tuple)):
-                        default_str = "\n".join(str(d) for d in default)
-                    else:
-                        default_str = str(default)
-                val = st.text_area(
-                    p_name,
-                    value=default_str,
-                    key=widget_key,
-                    help=help_text
-                )
-                args_dict[p_name] = [line.strip() for line in val.split("\n") if line.strip()]
-            elif type_val is bool:
-                val = st.checkbox(p_name, value=bool(default), key=widget_key, help=help_text)
-                args_dict[p_name] = val
-            elif type_val in (int, float):
-                if type_val is int:
-                    try:
-                        val_default = int(default)
-                    except (ValueError, TypeError):
-                        val_default = 0
-                    val = st.number_input(p_name, value=val_default, step=1, key=widget_key, help=help_text)
-                else:
-                    try:
-                        val_default = float(default)
-                    except (ValueError, TypeError):
-                        val_default = 0.0
-                    val = st.number_input(p_name, value=val_default, step=0.1, key=widget_key, help=help_text)
-                args_dict[p_name] = val
+            if is_iterable or type_val in (bool, int, float):
+                args_dict[p_name] = render_param(param, widget_key)
             elif type_val in ("int3", "dbl3"):
                 st.write(f"**{p_name}**")
                 sub_cols = st.columns(3)
@@ -266,10 +237,6 @@ def render_parseargs(params, key_prefix="", num_cols=2):
                     st.error(f"Invalid dictionary format for {p_name}.")
                     args_dict[p_name] = {}
             else:
-                default_str = ""
-                if has_default and default is not None and default is not inspect.Parameter.empty:
-                    default_str = str(default)
-                val = st.text_input(p_name, value=default_str, key=widget_key, help=help_text)
-                args_dict[p_name] = val
+                args_dict[p_name] = render_param(param, widget_key)
 
     return args_dict

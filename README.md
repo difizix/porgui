@@ -7,8 +7,6 @@
 The scripts are high-level and primarily CLI-based scripts that write files to disk. The lower-level logic (C++ or python packages) is/shall be usable both interactively from GUI as well as from the CLI scripts, for replaying.
 
 > [!WARNING]
-> * **Experimental:** Unstable, main branch will be overwritten.
->     * If you have made no changes, clone again!, or run `git fetch origin && git checkout FETCH_HEAD` followed by `git switch -C main` to update you local repo.
 > * **Experimental:** So far [image3kit] and [pnmkit] functionality are barely usable.
 > * Unpublished external dependencies.
 > * Demos may be moved out of this repo, they are web-UI compatible but commandline-first
@@ -17,15 +15,19 @@ See Makefile for instructions on injecting the snm standalone apps to the docker
 
 ## Features
 
-The GUI app consists of multiple tabs:
+The GUI app has one page per tool, linked from the top navigation bar (each page has its own URL, e.g. `/image`):
 
 1. **💻 Workflow Editor** 📝 ⭐⭐: Python script editor with syntax highlighting, live execution, and image caching
 2. **🖼️ Image Processing** 🖼️ ⭐⭐⭐ *(Core)*: 2D slice visualization and interactive image3kit function execution
 3. **🌐 Network Analysis** 🧊 ⭐⭐⭐ *(Core)*: 3D visualization (pyvista) for VTK/XDMF/network models and pnmkit/xpm analysis
 4. **📊 Saved Plots** 🎨 ⭐⭐: SVG/PNG image viewer for generated plots and screenshots
 5. **📄 Log Files** 📄 ⭐: Output log file browser and inspector
+6. **🛠️ Make**: run a target of the workspace `Makefile`, with its `?=` variables editable
 
-### 💻 Workflow Editor tab
+The generic parts (page factory, file pickers, argparse forms, process console, Make page) come from
+[uiutils](https://github.com/difizix/uiutils), installed from GitHub as a dependency.
+
+### 💻 Workflow Editor
 
 * Python code editor with syntax highlighting, and image caching
     * So far VxlImg (and Xdmf?) objects are cached, 
@@ -46,11 +48,12 @@ For OpenFOAM, we need to run in containers/remotely, as they are not pip-install
 
 ### 📄 Log file browser
 
-Copied the `app_logs.py` from [difizix/difgui](https://github.com/difizix/difgui), needs to be adapted to image3kit.
+Regex-filtered log picker (`uiutils.streamlit.widgets.filtered_select`, bound to `?log=...`), plus a keep/remove
+line filter on the shown log.
 
 ### 📊 Saved Plots (SVG/PNG image viewer)
 
-Copied the `app_plots.py` from [difizix/difgui](https://github.com/difizix/difgui), needs to be adapted to image3kit.
+Regex-filtered plot picker with Previous/Next buttons, bound to `?plot=...`.
 
 ---
 
@@ -72,11 +75,11 @@ the same way.
 
 Note: `pip install porgui` is intentionally minimal and does not require `vtk`,
 `pyvista`/`stpyvista`, or `pnmkit`/`snm`/`xpm`:
-* Without `pyvista`/`stpyvista`, the **Network Analysis** tab shows a message telling
+* Without `pyvista`/`stpyvista`, the **Network Analysis** page shows a message telling
   you to install them instead of loading (3D visualization needs pyvista). Run
   `pip install "porgui[dev] @ git+https://github.com/difizix/porgui.git"` to pull in
   `vtk`, `pyvista`, `stpyvista` and the other optional extras.
-* With `pyvista` installed but without `pnmkit`, the Network Analysis tab loads
+* With `pyvista` installed but without `pnmkit`, the Network Analysis page loads
   normally, but functions that need `pnmkit` (`mextract`, `snflow`) show a message
   telling you to install it manually — `pnmkit`/`snm`/`xpm` are never pip extras (see
   below for the dev checkout).
@@ -148,7 +151,7 @@ python  dering_segment.py  volume_467x1775x1480.raw
 python  ik_vtk_utils.py  volume_467x1775x1480.am/NXxNYxNZ.raw
 ```
 
-✅ You can launch these from editor tab of the streamlit gui as well
+✅ You can launch these from the Workflow Editor page of the streamlit gui as well
 
 ### TODO
 

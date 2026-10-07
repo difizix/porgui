@@ -12,8 +12,8 @@ from app_common import (
     resolve_object_args,
 )
 from toolbox import mextract, read_image, snflow
+from uiutils.argparse_form import FormParam
 from utils_app import (
-    FormParam,
     args_to_cmd_line,
     func_args_from_inspect,
     get_module_func_args,

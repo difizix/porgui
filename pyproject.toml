@@ -11,6 +11,7 @@ dependencies = [
     "image3kit @ git+https://github.com/difizix/image3kit.git@wip/main",
     "pnmkit @ git+https://github.com/difizix/pnmkit.git@wip/main",
     "streamlit",
+    "uiutils[streamlit] @ git+https://github.com/difizix/uiutils.git",
     "streamlit_code_editor",
     "Pillow"
 ]
