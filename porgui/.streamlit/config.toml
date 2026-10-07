@@ -1,0 +1,3 @@
+# Script-level config: streamlit reads it next to app.py, whatever the cwd.
+[client]
+toolbarMode = "viewer"  # no Deploy button or developer menu items

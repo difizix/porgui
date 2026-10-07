@@ -37,6 +37,9 @@ install-snm: build-snm
 install-xpm: build-xpm
 	cmake --install xpm/build --prefix `${PYTHON} -c "import sys; print(sys.prefix)"`
 
+run-local:
+	python -m streamlit run porgui/app.py
+
 clean-snm:
 	rm -rf snm/build
 

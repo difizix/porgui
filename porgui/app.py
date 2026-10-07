@@ -36,7 +36,8 @@ from utils_app import get_output_files
 st.set_page_config(
     layout="wide",
     page_title="PorGUI",
-    page_icon="💠"
+    page_icon="💠",
+    initial_sidebar_state="expanded",
 )
 
 # Custom CSS for rich aesthetics (sleek dark theme, clean typography, cards, and animations)
@@ -52,15 +53,13 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace !important;
     }
     .stMainBlockContainer {
-        padding: 0 1rem 10rem 1rem;
-    }
-    .stAppHeader {
-        z-index: -1 !important;
+        padding: 2.75rem 1rem 5rem 1rem; /* top: clear the header */
     }
 
-    /* Transparent Header */
+    /* Compact header (page navigation + toolbar); streamlit's own background keeps it opaque in either theme */
     header[data-testid="stHeader"] {
-        background: transparent !important;
+        height: 2.25rem;
+        min-height: 2.25rem;
     }
 
     /* Premium card design */
@@ -195,34 +194,30 @@ if "workspace_vars" not in st.session_state:
 if "session_commands" not in st.session_state:
     st.session_state.session_commands = ""
 
-# Populate files lists for app_plots / app_logs
+# Populate files lists for the Plots / Logs pages
 if "png_files" not in st.session_state or "log_files" not in st.session_state:
     pngs, logs = get_output_files()
     st.session_state.png_files = pngs
     st.session_state.log_files = logs
 
-if "applied_keep" not in st.session_state:
-    st.session_state.applied_keep = ""
-if "applied_remove" not in st.session_state:
-    st.session_state.applied_remove = ""
-if "filter_applied" not in st.session_state:
-    st.session_state.filter_applied = False
-if "filter_version" not in st.session_state:
-    st.session_state.filter_version = 0
-
 
 # ----------------------------------------------------
 # PAGES: each module is imported only when its page is opened
 # ----------------------------------------------------
-from app_logs import refresh_outputs  # noqa: E402
+from app_common import refresh_outputs  # noqa: E402
 from uiutils.streamlit.pages import page  # noqa: E402
 
+root = Path(root_dir)
 PAGES = [
     page("app_editor:workflow_studio", "Workflow Editor", "💻", "editor", default=True, args=(st, ik)),
     page("app_func_img:render_imgpro_tab", "Image Processing", "🖼️", "image"),
     page("app_func_net:render_pnm_tab", "Network Analysis", "🌐", "network"),
-    page("app_plots:render_plots", "Saved Plots", "📊", "plots"),
-    page("app_logs:render_logs", "Log Files", "📄", "logs"),
-    page("uiutils.streamlit.page_make:render_make", "Make", "🛠️", "make", args=(Path(root_dir), refresh_outputs)),
+
+    page("uiutils.streamlit.page_files:render_plots", "Saved Plots", "📊", "plots",
+            args=(root, lambda: st.session_state.png_files, refresh_outputs)),
+    page("uiutils.streamlit.page_files:render_logs", "Log Files", "📄", "logs",
+            args=(root, lambda: st.session_state.log_files, refresh_outputs)),
+
+    page("uiutils.streamlit.page_make:render_make", "Make", "🛠️", "make", args=(root, refresh_outputs)),
 ]
 st.navigation(PAGES, position="top").run()

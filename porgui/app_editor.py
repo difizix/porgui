@@ -1,9 +1,9 @@
 import glob
 import os
 
-from app_common import get_workspace
+from app_common import get_workspace, refresh_outputs
 from app_presenters import run_script_stream
-from utils_app import get_output_files, render_stream_preformatted
+from utils_app import render_stream_preformatted
 
 
 # ----------------------------------------------------
@@ -43,7 +43,9 @@ def workflow_studio(st, ik):
             "Select Workflow Script",
             options,
             index=0 if "last_executed_script" not in st.session_state or st.session_state.last_executed_script not in options else options.index(st.session_state.last_executed_script),
-            label_visibility="collapsed"
+            label_visibility="collapsed",
+            key="script",
+            bind="query-params",
         )
         if selected_script == "➕ New File...":
             _new_file_dialog(st)
@@ -165,9 +167,7 @@ def workflow_studio(st, ik):
                 if result.absorbed_vars and workspace.active_var:
                     st.session_state.active_var_selectbox_widget = workspace.active_var
 
-                pngs, logs = get_output_files()
-                st.session_state.png_files = pngs
-                st.session_state.log_files = logs
+                refresh_outputs()
             st.rerun()
         _run_dialog()
 

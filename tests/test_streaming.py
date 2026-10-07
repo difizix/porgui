@@ -14,19 +14,7 @@ if porgui_dir not in sys.path:
 import image3kit as ik
 from app_presenters import ExecutionPresenter, run_script_stream
 from app_state import DictStore, Workspace
-from utils_app import stream_callable_output, stream_process_output
-
-
-def test_stream_process_output():
-    cmd = [
-        sys.executable,
-        "-u",
-        "-c",
-        "import sys; print('Line 1'); print('Line 2'); sys.stdout.flush()",
-    ]
-    lines = list(stream_process_output(cmd, cwd=repo_root))
-    assert any("Line 1" in l for l in lines)
-    assert any("Line 2" in l for l in lines)
+from utils_app import stream_callable_output
 
 
 def test_stream_callable_output():

@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-import argparse
 import contextlib
 import inspect
 import io
 import os
 import queue
 import re
-import subprocess
 import sys
 import threading
 import traceback
 from pathlib import Path
 
 from image3kit._core import ostream_redirect
+from uiutils.argparse_form import form2argv, parser2uiparams
 
 # This file shall not contain any streamlit related imports, those utilities go into app_common.py
 
@@ -30,93 +29,41 @@ if str(pkg_dir) not in sys.path:
 # same default in app.py.
 top_dir = Path(os.environ.get("PORGUI_WORKSPACE", os.getcwd())).resolve()
 
+def _dropdown_type(name: str, desc: str, type_val):
+    """porgui's file/case dropdown for an argparse option, guessed from its name and help text."""
+    name, desc = name.lower(), desc.lower()
+    if "xmf" in name or "xmf" in desc:
+        return "xmf_dropdown"
+    if any(k in name for k in ("image", "img", "filename")) or "image" in desc:
+        return "img_dropdown"
+    if "case" in name or "case" in desc:
+        return "case_dropdown"
+    return type_val
+
+
 def get_module_func_args(module_name: str, argparse_func_name, main_func_name):
+    """(main wrapped to take form values as kwargs, form params) of a module with an argparse CLI."""
     try:
         module = __import__(module_name)
-        parser_factory = getattr(module, argparse_func_name)
+        parser = getattr(module, argparse_func_name)()
         main_func = getattr(module, main_func_name)
     except Exception as e:
         print(f"Error loading {module_name}: {e}")
         return None, []
 
-    parser = parser_factory()
-    params_meta = []
-
-    for action in parser._actions:
-        if action.dest == "help" or isinstance(action, argparse._HelpAction):
-            continue
-
-        p_name = action.dest
-        p_type = action.type if action.type is not None else str
-
-        if isinstance(action, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
-            p_type = bool
-
-        p_default = action.default
-        if p_default is argparse.SUPPRESS:
-            p_default = None
-
-        p_desc = action.help or ""
-
-        # Map to specific UI dropdown types dynamically based on argument name and description
-        p_name_lower = p_name.lower()
-        p_desc_lower = p_desc.lower()
-        if "xmf" in p_name_lower or "xmf" in p_desc_lower:
-            p_type = "xmf_dropdown"
-        elif any(k in p_name_lower for k in ("image", "img", "filename")) or "image" in p_desc_lower:
-            p_type = "img_dropdown"
-        elif "case" in p_name_lower or "case" in p_desc_lower:
-            p_type = "case_dropdown"
-
-        params_meta.append({
-            "name": p_name,
-            "type": p_type,
-            "default": p_default,
-            "desc": p_desc,
-            "action": action
-        })
+    params = [{"name": p.name, "type": _dropdown_type(p.name, p.help_text, p.type_val),
+               "default": "" if p.default is None else p.default, "desc": p.help_text}
+              for p in parser2uiparams(parser)]
 
     def wrapped_func(**kwargs):
-        cmd_args = []
-        for p in params_meta:
-            action = p["action"]
-            val = kwargs.get(p["name"], p["default"])
-
-            if val is None and action.option_strings:
-                continue
-
-            if action.option_strings:
-                opt_name = action.option_strings[0]
-                if isinstance(action, argparse._StoreTrueAction):
-                    if val:
-                        cmd_args.append(opt_name)
-                elif isinstance(action, argparse._StoreFalseAction):
-                    if not val:
-                        cmd_args.append(opt_name)
-                else:
-                    cmd_args.append(opt_name)
-                    cmd_args.append(str(val))
-            else:
-                if val is not None:
-                    cmd_args.append(str(val))
-
         orig_argv = sys.argv
-        sys.argv = [main_func.__module__] + cmd_args
+        sys.argv = [main_func.__module__, *form2argv(parser, kwargs)]
         try:
             return main_func()
         finally:
             sys.argv = orig_argv
 
-    cleaned_params = []
-    for p in params_meta:
-        cleaned_params.append({
-            "name": p["name"],
-            "type": p["type"],
-            "default": p["default"] if p["default"] is not None else "",
-            "desc": p["desc"]
-        })
-
-    return wrapped_func, cleaned_params
+    return wrapped_func, params
 
 
 
@@ -394,28 +341,6 @@ def run_capturing_output(func, *args, **kwargs):
             with ostream_redirect(stdout=True, stderr=True):
                 result = func(*args, **kwargs)
     return result, stdout_buf.getvalue()
-
-
-def stream_process_output(cmd, cwd=None, env=None):
-    """Generator yielding each line of stdout/stderr from a process in real time.
-
-    Streamlit usage:
-        st.write_stream(stream_process_output(cmd))
-    """
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        cwd=cwd,
-        env=env,
-    )
-
-    if process.stdout:
-        yield from iter(process.stdout.readline, '')
-        process.stdout.close()
-    process.wait()
 
 
 def render_stream_preformatted(st, stream_gen):

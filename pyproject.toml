@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "porgui"
 version = "0.1.0"
 description = "PoreGUI app and utilities"
-requires-python = ">=3.9"
+requires-python = ">=3.10"  # uiutils
 dependencies = [
     "image3kit @ git+https://github.com/difizix/image3kit.git@wip/main",
     "pnmkit @ git+https://github.com/difizix/pnmkit.git@wip/main",
@@ -24,6 +24,9 @@ porgui = "porgui.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["porgui*"]
+
+[tool.setuptools.package-data]
+porgui = [".streamlit/config.toml"]  # toolbarMode, read next to app.py
 
 [tool.pyright]
 extraPaths = [
