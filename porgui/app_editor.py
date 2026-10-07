@@ -9,20 +9,30 @@ from utils_app import render_stream_preformatted
 # ----------------------------------------------------
 # TAB 1: WORKFLOW STUDIO
 # ----------------------------------------------------
+def _create_script(st):
+    """Button callback: write the new script and select it. A callback runs before the rerun, so it may
+    still set the picker's value (a widget's value can't be set after the widget is drawn)."""
+    name = st.session_state.new_script_name.strip()
+    if not name:
+        st.session_state.new_script_err = "Please enter a valid file name."
+        return
+    fname = name if name.endswith(".py") else name + ".py"
+    with open(fname, "w") as f:
+        f.write("import image3kit as ik\n\n# Your code here\n")
+    st.session_state.new_script_err = ""
+    st.session_state.script = fname
+
+
 def _new_file_dialog(st):
     """Show a blocking dialog to create a new workflow script."""
     @st.dialog("Create New Workflow Script")
     def _dialog():
-        name = st.text_input("File name", placeholder="my_workflow.py")
-        if st.button("✅ Create", use_container_width=True):
-            if name:
-                fname = name if name.endswith(".py") else name + ".py"
-                with open(fname, "w") as f:
-                    f.write("import image3kit as ik\n\n# Your code here\n")
-                st.session_state.last_executed_script = fname
-                st.rerun()
-            else:
-                st.error("Please enter a valid file name.")
+        st.text_input("File name", placeholder="my_workflow.py", key="new_script_name")
+        created = st.button("✅ Create", width="stretch", on_click=_create_script, args=(st,))
+        if st.session_state.get("new_script_err"):
+            st.error(st.session_state.new_script_err)
+        elif created:
+            st.rerun()  # a dialog's button reruns only the dialog; the picker needs the whole page
     _dialog()
 
 
@@ -72,12 +82,6 @@ def workflow_studio(st, ik):
         with btn_col4:
             clear_cache = st.button("🧹 Clear", key="clear_cache_btn", width="stretch")
 
-    if save_pressed:
-        if selected_script:
-            st.toast(f"Saved {selected_script} successfully!", icon="💾")
-        else:
-            st.warning("No script selected to save.")
-
     if clear_cache:
         if st.session_state.image_cache:
             for k in list(st.session_state.image_cache.keys()):
@@ -107,40 +111,41 @@ def workflow_studio(st, ik):
 
     if selected_script and os.path.exists(selected_script):
         with open(selected_script, "r") as f:
-            script_code = f.read()
+            disk_code = f.read()
     else:
-        script_code = ""
+        disk_code = ""
+    editor_code = disk_code  # what Run executes and Save writes: the editor's text, saved or not
 
     if selected_script:
         try:
             from code_editor import code_editor
             response = code_editor(
-                script_code,
+                disk_code,
                 lang="python",
                 theme="monokai",
                 options={"wrap": True, "autoScrollEditorIntoView": True},
                 response_mode=["debounce", "blur"],
                 key=f"code_editor_{selected_script.replace('.', '_').replace('/', '__')}"
             )
-
-            # If the response contains new text (from blur or submit event), save it
-            new_text = response.get("text")
-            if new_text and new_text != script_code:
-                with open(selected_script, "w") as f:
-                    f.write(new_text)
-                script_code = new_text
-
-            if response.get("type") == "submit":
-                pass # Explicit submit (Ctrl+S) handled above since text is updated
+            editor_code = response.get("text") or disk_code  # "" until the editor first reports
 
         except ImportError:
-            edited_code = st.text_area("Script Code Editor", value=script_code, height=450, key="fallback_editor")
-            if edited_code != script_code:
-                with open(selected_script, "w") as f:
-                    f.write(edited_code)
-                script_code = edited_code
+            # key per script: a keyed widget ignores a new value=, so a shared key would show the
+            # previously opened script's text for the newly selected one
+            editor_code = st.text_area("Script Code Editor", value=disk_code, height=450,
+                                       key=f"fallback_editor_{selected_script}")
+
+        if save_pressed:
+            with open(selected_script, "w") as f:
+                f.write(editor_code)
+            disk_code = editor_code
+            st.toast(f"Saved {selected_script}", icon="💾")
+        if editor_code != disk_code:
+            st.caption("✏️ Unsaved changes: Run uses the editor's text; 💾 Save or your edits will be lost if you change the script in the dropdown ⚠️")
     else:
         st.info("💡 No workflow script selected. Select a script from the dropdown above or click **➕ New File...** to create one.")
+        if save_pressed:
+            st.warning("No script selected to save.")
 
     # Execution logic
     if run_pressed and selected_script:
@@ -150,7 +155,7 @@ def workflow_studio(st, ik):
 
         workspace = get_workspace()
         result_holder = {}
-        stream_gen = run_script_stream(selected_script, script_code, args_input, workspace, ik, result_holder)
+        stream_gen = run_script_stream(selected_script, editor_code, args_input, workspace, ik, result_holder)
 
         @st.dialog("⚙️ Streaming Workflow Script Output", width="large")
         def _run_dialog():
