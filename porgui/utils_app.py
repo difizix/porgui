@@ -13,6 +13,7 @@ from pathlib import Path
 
 from image3kit._core import ostream_redirect
 from uiutils.argparse_form import form2argv, parser2uiparams
+from uiutils.file_discovery import find_outputs
 
 # This file shall not contain any streamlit related imports, those utilities go into app_common.py
 
@@ -155,33 +156,9 @@ def args_to_cmd_line(selected_func, args, copy_on_write, selected_var, out_var_n
             cmd_line = f"{selected_func}({args_str})"
     return cmd_line
 
-def get_output_files(dir=top_dir/"runs"):
-    png_files = []
-    log_files = []
-    exclude_dirs = {".git", ".venv", "__pycache__", ".deps", ".ruff_cache", ".agents", ".antigravity", "tmp-"}
-
-    try:
-        for path in dir.rglob("*"):
-            if path.is_dir():
-                continue
-            if any(parent.name in exclude_dirs for parent in path.parents):
-                continue
-            if path.suffix == ".png":
-                png_files.append(path.relative_to(top_dir))
-            elif path.suffix == ".log" or path.name in {"log", "log-"} or path.name.startswith("log_"):
-                log_files.append(path.relative_to(top_dir))
-    except Exception:
-        pass
-
-    def sort_key(p):
-        try:
-            return (-(top_dir / p).stat().st_mtime, str(p))
-        except Exception:
-            return (0, str(p))
-
-    png_files.sort(key=sort_key)
-    log_files.sort(key=sort_key)
-    return [str(p) for p in png_files], [str(p) for p in log_files]
+def get_output_files():
+    """Plots and logs under runs/, as (pngs, logs) relative to top_dir, newest first."""
+    return find_outputs(top_dir, prune=lambda d: d.parts[0] != "runs", keep=lambda p: p.parts[0] == "runs")
 
 
 def func_args_from_pybind_doc(doc: str) -> dict:
