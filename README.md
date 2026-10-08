@@ -7,25 +7,23 @@
 The scripts are high-level and primarily CLI-based scripts that write files to disk. The lower-level logic (C++ or python packages) is/shall be usable both interactively from GUI as well as from the CLI scripts, for replaying.
 
 > [!WARNING]
-> * **Experimental:** So far [image3kit] and [pnmkit] functionality are barely usable.
-> * Unpublished external dependencies.
+> * **Experimental:** unstable, use git commit hashes as version numbers
+> * Using SNM and XPM requires injecting external dependencies, please contact us for access
 > * Demos may be moved out of this repo, they are web-UI compatible but commandline-first
 
-See Makefile for instructions on injecting the snm standalone apps to the docker container, while it is running.
+See the Makefile for instructions on injecting the xpm and/or snm standalone apps to a running docker container.
 
 ## Features
 
-The GUI app has one page per tool, linked from the top navigation bar (each page has its own URL, e.g. `/image`):
+The GUI app has one page per tool):
 
-1. **💻 Workflow Editor** 📝 ⭐⭐: Python script editor with syntax highlighting, live execution, and image caching
-2. **🖼️ Image Processing** 🖼️ ⭐⭐⭐ *(Core)*: 2D slice visualization and interactive image3kit function execution
-3. **🌐 Network Analysis** 🧊 ⭐⭐⭐ *(Core)*: 3D visualization (pyvista) for VTK/XDMF/network models and pnmkit/xpm analysis
-4. **📊 Saved Plots** 🎨 ⭐⭐: SVG/PNG image viewer for generated plots and screenshots
-5. **📄 Log Files** 📄 ⭐: Output log file browser and inspector
-6. **🛠️ Make**: run a target of the workspace `Makefile`, with its `?=` variables editable
-
-The generic parts (page factory, file pickers, argparse forms, process console, Make page) come from
-[uiutils](https://github.com/difizix/uiutils), installed from GitHub as a dependency.
+* **💻 Workflow Editor** 📝 ⭐⭐: Python script editor with syntax highlighting, live execution, and image caching
+* **🖼️ Image Processing** 🖼️ ⭐⭐⭐ *(Core)*: 2D slice visualization and interactive image3kit function execution
+* **🌐 Network Analysis** 🧊 ⭐⭐⭐ *(Core)*: 3D visualization (pyvista) for VTK/XDMF/network models and pnmkit/xpm analysis
+* Imported from [uiutils]:
+    * **📊 Saved Plots** 🎨 ⭐⭐: SVG/PNG image viewer for generated plots and screenshots
+    * **📄 Log Files** 📄 ⭐: Output log file browser and inspector
+    * **🛠️ Make**: run a target of the workspace `Makefile`, with its `?=` variables editable
 
 ### 💻 Workflow Editor
 
@@ -41,26 +39,12 @@ The generic parts (page factory, file pickers, argparse forms, process console, 
 
 * 3D visualization widget based on pyvista/vtk, both for 3D contour surfaces as well as pnmkit/Xdmf network files.
 
-### Task manager (TODO)
-
-TODO: The long-running workflows shall be launched in background with a lockfile that is used to monitor their pid and status. The task manager shall be used to view and cancel running workflows, also preventing same workflow from running twice in the same directory.
-For OpenFOAM, we need to run in containers/remotely, as they are not pip-installable.
-
-### 📄 Log file browser
-
-Regex-filtered log picker (`uiutils.streamlit.widgets.filtered_select`, bound to `?log=...`), plus a keep/remove
-line filter on the shown log.
-
-### 📊 Saved Plots (SVG/PNG image viewer)
-
-Regex-filtered plot picker with Previous/Next buttons, bound to `?plot=...`.
-
 ---
 
 ## Quick start (pip install, no manual clone, your own runs/*.py scripts)
 
 ```bash
-# activate a venv, then run:
+# activate a Python venv, then run:
 pip install git+https://github.com/difizix/porgui.git
 porgui --serve
 ```
@@ -153,12 +137,6 @@ python  ik_vtk_utils.py  volume_467x1775x1480.am/NXxNYxNZ.raw
 
 ✅ You can launch these from the Workflow Editor page of the streamlit gui as well
 
-### TODO
-
-* Integrate with OpenFOAM/GeoChemFoam ?
-* More integration with XPM
-
-
 
 ### CONTRIBUTING
 
@@ -170,3 +148,4 @@ Please push your changes to a separate branch and open a pull request or let me 
 [image3kit]: https://github.com/DigiPorFlow/image3kit
 [pnmkit]: https://github.com/difizix/pnmkit
 [xpm]: https://github.com/difizix/xpm
+[uiutils]: https://github.com/difizix/uiutils
