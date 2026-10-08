@@ -22,9 +22,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nlohmann-json3-dev \
     libblas-dev \
     liblapack-dev \
+    psmisc \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PIP_ROOT_USER_ACTION=ignore
+ENV PIP_ROOT_USER_ACTION=ignore \
+    OMPI_ALLOW_RUN_AS_ROOT=1 \
+    OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 \
+    PRTE_ALLOW_RUN_AS_ROOT=1 \
+    PRTE_ALLOW_RUN_AS_ROOT_CONFIRM=1 \
+    PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe \
+    OMPI_MCA_rmaps_base_oversubscribe=true
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir numpy scikit-build-core pybind11
