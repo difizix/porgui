@@ -61,10 +61,7 @@ COPY pyproject.toml /app/pyproject.toml
 RUN mkdir -p porgui && touch porgui/__init__.py && \
     pip install --no-cache-dir -e ".[dev]"
 
-# Edit pyproject.toml to force an update of XPM
-RUN pip install --no-cache-dir git+https://github.com/difizix/xpm.git
-
-# NB! SNM is injected/updated via `make injectSnm`, which works when the container is started.
+# NB! SNM and XPM are injected/updated via `make injectSnm` and `make injectXpm` / `make injectXpmPip`, which work when the container is started.
 
 # NB! /app is bind-mounted, so this is not used, see below
 COPY porgui /app/porgui
