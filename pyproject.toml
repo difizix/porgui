@@ -26,7 +26,7 @@ porgui = "porgui.__main__:main"
 include = ["porgui*"]
 
 [tool.setuptools.package-data]
-porgui = [".streamlit/config.toml"]  # toolbarMode, read next to app.py
+porgui = [".streamlit/config.toml", "docs/**/*", "deps.mk"]  # toolbarMode, read next to app.py; deps.mk for the Make page
 
 [tool.pyright]
 extraPaths = [

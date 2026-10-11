@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 import image3kit as ik
 import numpy as np
@@ -150,7 +151,30 @@ for _pf_name, _pf_func in PYTHON_FUNCTIONS.items():
 # ----------------------------------------------------
 # TAB 2: INTERACTIVE VISUALIZER
 # ----------------------------------------------------
+_AXIS_LABELS = {"Z": "Z (Axial)", "Y": "Y (Coronal)", "X": "X (Sagittal)"}
+
+
+def _load_url_image(workspace):
+    """`?img=<path under runs/>`: load the file once per session, named after it, and view it.
+
+    Pitfalls (stale URL, no retry, name clashes): docs/url_params.md.
+    """
+    path = st.query_params.get("img")
+    if not path or st.session_state.get("_url_img") == path:
+        return
+    st.session_state._url_img = path
+    name = Path(path).name.split(".")[0]
+    if name not in workspace.vars:
+        try:
+            workspace.store_var(name, read_image(path))
+        except Exception as e:  # noqa: BLE001 -- shown in the page
+            st.error(f"`?img={path}`: {e}")
+            return
+    st.session_state.pending_active_var = name
+
+
 def render_imgpro_tab():
+    _load_url_image(get_workspace())
     if "pending_active_var" in st.session_state:
         pending = st.session_state.pop("pending_active_var")
         st.session_state.active_var = pending
@@ -232,8 +256,9 @@ def render_imgpro_tab():
             with c1_ax:
                 st.markdown("<div style='padding-top: 6px;'><b>View Normal Axis:</b></div>", unsafe_allow_html=True)
             with c2_ax:
-                axis = st.selectbox("View Normal Axis", ["Z (Axial)", "Y (Coronal)", "X (Sagittal)"], key="view_axis_sel", label_visibility="collapsed")
-            axis_idx = 2 if "Z" in axis else (1 if "Y" in axis else 0)
+                axis = st.selectbox("View Normal Axis", list(_AXIS_LABELS), format_func=_AXIS_LABELS.get, key="axis",
+                                    bind="query-params", label_visibility="collapsed")
+            axis_idx = "XYZ".index(axis)
             max_slice = shape[axis_idx] - 1
             if max_slice <= 0:
                 st.caption("Slice Index: 0 (Dimension size is 1)")
@@ -243,7 +268,7 @@ def render_imgpro_tab():
                 with c1_sl:
                     st.markdown("<div style='padding-top: 6px;'><b>Select Slice Index:</b></div>", unsafe_allow_html=True)
                 with c2_sl:
-                    slice_idx = st.slider("Slice Index", 0, int(max_slice), int(max_slice // 2), key="slice_slider", label_visibility="collapsed")
+                    slice_idx = st.slider("Slice Index", 0, int(max_slice), int(max_slice // 2), key="slice", bind="query-params", label_visibility="collapsed")
             
             data_min = float(data.min())
             data_max = float(data.max())

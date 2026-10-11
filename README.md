@@ -10,12 +10,14 @@ The scripts are high-level and primarily CLI-based scripts that write files to d
 > * **Experimental:** unstable, use git commit hashes as version numbers
 > * Using SNM and XPM requires injecting external dependencies, please contact us for access
 > * Demos may be moved out of this repo, they are web-UI compatible but commandline-first
+> * **Not for public serving:** it runs Python and Make from the browser, with no builtin user isolation; see [docs/security.md](docs/security.md)
 
-See the Makefile for instructions on injecting the xpm and/or snm standalone apps to a running docker container.
 
 ## Features
 
-The GUI app has one page per tool):
+The GUI app has one page per tool:
+
+* **🧭 Home**: short docs with links that open each page in a given state (file, function, slice), see [porgui/docs/index.md](porgui/docs/index.md)
 
 * **💻 Workflow Editor** 📝 ⭐⭐: Python script editor with syntax highlighting, live execution, and image caching
 * **🖼️ Image Processing** 🖼️ ⭐⭐⭐ *(Core)*: 2D slice visualization and interactive image3kit function execution
@@ -24,6 +26,9 @@ The GUI app has one page per tool):
     * **📊 Saved Plots** 🎨 ⭐⭐: SVG/PNG image viewer for generated plots and screenshots
     * **📄 Log Files** 📄 ⭐: Output log file browser and inspector
     * **🛠️ Make**: run a target of the workspace `Makefile`, with its `?=` variables editable
+
+SNM and XPM are installed with [porgui/deps.mk](porgui/deps.mk): `make installSnm` / `installXpm` on the host, `make injectSnm` / `injectXpm` into the running container, or from the GUI's **Make** page. Set `SNM_GIT` / `XPM_GIT` to clone from another (e.g. public) URL.
+
 
 ### 💻 Workflow Editor
 
@@ -34,10 +39,12 @@ The GUI app has one page per tool):
 ### 🖼️ Image Processing (2D visualization and interactive functions)
 
 * Interactive 2D slice visualizer and testing bench for `image3kit` functions.
+![Network Analysis](docs/img/network.png)
 
 ### 🌐 Network Analysis (3D visualization)
 
 * 3D visualization widget based on pyvista/vtk, both for 3D contour surfaces as well as pnmkit/Xdmf network files.
+![Image Processing](docs/img/image.png)
 
 ---
 

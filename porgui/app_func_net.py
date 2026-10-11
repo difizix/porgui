@@ -62,6 +62,26 @@ for _pf_name, _pf_func in PYTHON_FUNCTIONS.items():
 # ----------------------------------------------------
 # TAB 3: NETWORK ANALYSIS
 # ----------------------------------------------------
+def _load_url_network(workspace, pv):
+    """`?net=<path.xmf under runs/>`: load the network once per session, named after it, and view it.
+
+    Pitfalls (stale URL, no retry, name clashes): docs/url_params.md.
+    """
+    path = st.query_params.get("net")
+    if not path or st.session_state.get("_url_net") == path:
+        return
+    st.session_state._url_net = path
+    name = os.path.basename(path).split(".")[0]
+    if name not in workspace.vars:
+        try:
+            workspace.store_var(name, pv.read(path, force_ext=".xdmf"))
+        except Exception as e:  # noqa: BLE001 -- shown in the page
+            st.error(f"`?net={path}`: {e}")
+            return
+        st.session_state.setdefault("net_filenames", {})[name] = path
+    st.session_state.net_active_var_selectbox = name
+
+
 def render_pnm_tab():
     try:
         import pyvista as pv
@@ -71,6 +91,7 @@ def render_pnm_tab():
             "unavailable. Install it manually to use this tab: `pip install pyvista stpyvista`."
         )
         return
+    _load_url_network(get_workspace(), pv)
 
     st.session_state.setdefault("net_generated_code", None)
     st.session_state.setdefault("net_filenames", {})
@@ -276,7 +297,8 @@ def render_pnm_tab():
                         "Color by Attribute:",
                         available_scalars,
                         index=default_idx,
-                        key="net_color_scalar_selectbox"
+                        key="scalar",
+                        bind="query-params",
                     )
 
 

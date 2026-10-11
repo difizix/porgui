@@ -208,16 +208,23 @@ from app_common import refresh_outputs  # noqa: E402
 from uiutils.streamlit.pages import page  # noqa: E402
 
 root = Path(root_dir)
-PAGES = [
-    page("app_editor:workflow_studio", "Workflow Editor", "💻", "editor", default=True, args=(st, ik)),
-    page("app_func_img:render_imgpro_tab", "Image Processing", "🖼️", "image"),
-    page("app_func_net:render_pnm_tab", "Network Analysis", "🌐", "network"),
 
-    page("uiutils.streamlit.page_files:render_plots", "Saved Plots", "📊", "plots",
-            args=(root, lambda: st.session_state.png_files, refresh_outputs)),
-    page("uiutils.streamlit.page_files:render_logs", "Log Files", "📄", "logs",
-            args=(root, lambda: st.session_state.log_files, refresh_outputs)),
+# by url_path, for st.page_link; Home (docs) links into it, so it is filled after creation
+PAGES: dict[str, st.Page] = {}
+PAGES.update(
+    docs=page("uiutils.streamlit.page_docs:render_docs", "Home", "🧭", "docs", default=True,
+              args=(Path(pkg_dir), PAGES, "docs", "docs/index.md")),
+    editor=page("app_editor:workflow_studio", "Workflow Editor", "💻", "editor", args=(st, ik)),
+    image=page("app_func_img:render_imgpro_tab", "Image Processing", "🖼️", "image"),
+    network=page("app_func_net:render_pnm_tab", "Network Analysis", "🌐", "network"),
 
-    page("uiutils.streamlit.page_make:render_make", "Make", "🛠️", "make", args=(root, refresh_outputs)),
-]
-st.navigation(PAGES, position="top").run()
+    plots=page("uiutils.streamlit.page_files:render_plots", "Saved Plots", "📊", "plots",
+               args=(root, lambda: st.session_state.png_files, refresh_outputs)),
+    logs=page("uiutils.streamlit.page_files:render_logs", "Log Files", "📄", "logs",
+              args=(root, lambda: st.session_state.log_files, refresh_outputs)),
+
+    # the workspace Makefile, else porgui's own deps.mk (snm/xpm installers), e.g. in infra/compose
+    make=page("uiutils.streamlit.page_make:render_make", "Make", "🛠️", "make",
+              args=(root, refresh_outputs, None if (root / "Makefile").is_file() else Path(pkg_dir) / "deps.mk")),
+)
+st.navigation(list(PAGES.values()), position="top").run()

@@ -1,19 +1,12 @@
 help:
 	@echo "Available targets:"
-	@echo "  build-snm      - Compile snm executables (skelor, scalor, cnflow)"
-	@echo "  build-xpm      - Compile xpm executable"
-	@echo "  install-snm    - Install snm executables to Python/active environment prefix"
-	@echo "  install-xpm    - Install xpm executable to Python/active environment prefix"
-	@echo "  clean-snm      - Remove snm build directory"
-	@echo "  clean-xpm      - Remove xpm build directory"
-	@echo "  restartPodman  - Rebuild and restart the container"
-	@echo "  runPodman      - Build and run container using Podman or Docker"
-	@echo "  injectSnm      - Compile and inject snm into container"
-	@echo "  injectXpm      - Compile and inject xpm into container"
-	@echo "  injectXpmPip   - Build and inject xpm via pip into container"
-	@echo "  testXpmInPod   - Run xpm regression tests inside container"
+	@echo "  installSnm, installXpm, installXpmPip - build and install snm/xpm here (porgui/deps.mk)"
+	@echo "  injectSnm, injectXpm, injectXpmPip    - the same, inside the running porsmgui container"
+	@echo "  runPodman      - Build and run the container using Podman or Docker"
+	@echo "  testXpmInPod   - Run xpm regression tests inside the container"
+	@echo "  update_screenshots - Retake docs/img/*.png from a running porgui (SHOT_URL)"
 
-.PHONY: build-snm build-xpm install-snm install-xpm clean-snm clean-xpm runPodman runDocker runContainer restartPodman injectSnm injectXpm injectXpmPip testXpmInPod test help
+.PHONY: update_screenshots runPodman runDocker runContainer restartPodman injectSnm injectXpm injectXpmPip testXpmInPod test help
 
 PODMAN ?= $(shell command -v docker 2>/dev/null || command -v podman 2>/dev/null || echo docker)
 
@@ -27,28 +20,19 @@ VENV_BIN := $(VENV_DIR)/bin
 PYTHON   := $(VENV_BIN)/python
 PIP      := $(VENV_BIN)/pip
 
-build-snm:
-	cmake -S snm -B snm/build -DCMAKE_BUILD_TYPE=Release
-	cmake --build snm/build -j4
-
-build-xpm:
-	cmake -S xpm -B xpm/build -DCMAKE_BUILD_TYPE=Release
-	cmake --build xpm/build -j4
-
-install-snm: build-snm
-	cmake --install snm/build --prefix `${PYTHON} -c "import sys; print(sys.prefix)"`
-
-install-xpm: build-xpm
-	cmake --install xpm/build --prefix `${PYTHON} -c "import sys; print(sys.prefix)"`
+include porgui/deps.mk
 
 run-local:
 	python -m streamlit run porgui/app.py
 
-clean-snm:
-	rm -rf snm/build
+# README screenshots; start porgui first (host or container). CHROME=/usr/bin/google-chrome skips `playwright install chromium`
+SHOT_URL = http://localhost:8501
+CHROME =
+update_screenshots: runs/pakextr/extruded_ms.xmf
+	${PYTHON} tests/make_screenshots.py $(SHOT_URL) $(if $(CHROME),--chrome $(CHROME))
 
-clean-xpm:
-	rm -rf xpm/build
+runs/pakextr/extruded_ms.xmf:  # the screenshots' data (needs snm: make installSnm)
+	cd runs && ${PYTHON} pnm_from_extrude.py
 
 test:
 	${PYTHON} -m pytest 
@@ -61,42 +45,17 @@ runDocker: runPodman
 runContainer: runPodman
 restartPodman: runPodman
 
-_checkGetXpm:
-	( test -d xpm || git clone git@github.com:difizix/xpm.git || ! echo please manually clone xpm, contact its developers for access)
+# snm/xpm are cloned inside the container unless ./snm, ./xpm are bind-mounted; pass a public SNM_GIT/XPM_GIT if needed
+DEPS_VARS = SNM_GIT=$(SNM_GIT) XPM_GIT=$(XPM_GIT) SNM_REF=$(SNM_REF) XPM_REF=$(XPM_REF) JOBS=$(JOBS)
 
-_checkGetSnm:
-	( test -d snm || git clone git@github.com:difizix/snm.git || ! echo please manually clone snm, contact its developers for access)
+injectSnm:  # installSnm inside the porsmgui container
+	${PODMAN} exec -t porsmgui make -f porgui/deps.mk installSnm $(DEPS_VARS)
 
-injectSnm: _checkGetSnm
-	@echo Compiling and injecting snm into porsmgui container, contact for access.
-	( [ -d snm ] || git clone git@github.com:difizix/snm.git )
-	( [ -d image3kit ] || git clone git@github.com:difizix/image3kit.git )
-	${PODMAN} exec -t porsmgui bash -c "\
-	cmake -S /app/snm -B /app/snm/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
-	cmake --build /app/snm/build -j 4 && \
-	cmake --install /app/snm/build"
+injectXpm:  # installXpm inside the porsmgui container
+	${PODMAN} exec -t porsmgui make -f porgui/deps.mk installXpm $(DEPS_VARS)
 
-injectXpm: _checkGetXpm
-	@echo Compiling and injecting xpm into porsmgui container.
-	${PODMAN} exec -t porsmgui bash -c " \
-		apt-get update ;\
-		apt-get install -y \
-			cmake ninja-build openmpi-bin libopenmpi-dev \
-			libboost-iostreams-dev libboost-graph-dev \
-			libfmt-dev nlohmann-json3-dev zlib1g-dev ;\
-		cmake -S /app/xpm -B /app/xpm/build -DCMAKE_BUILD_TYPE=Release -DXPM_HEADLESS=ON && \
-		cmake --build /app/xpm/build -j 4 --target xpm pnextract && \
-		cp /app/xpm/build/bin/xpm /app/xpm/build/bin/pnextract/pnextract /usr/local/bin/"
-
-injectXpmPip: _checkGetXpm
-	@echo Compiling and injecting xpm into porsmgui container, contact for access.
-	${PODMAN} exec -t porsmgui bash -c "\
-		apt-get update ;\
-		apt-get install -y \
-			cmake ninja-build openmpi-bin libopenmpi-dev \
-			libboost-iostreams-dev libboost-graph-dev \
-			libfmt-dev nlohmann-json3-dev zlib1g-dev ;\
-		CMAKE_BUILD_PARALLEL_LEVEL=4 pip install -e ./xpm --config-settings=cmake.define.XPM_HEADLESS=ON"
+injectXpmPip:  # installXpmPip inside the porsmgui container
+	${PODMAN} exec -t porsmgui make -f porgui/deps.mk installXpmPip $(DEPS_VARS)
 
 testXpmInPod:
 	mkdir -p xpm/runs

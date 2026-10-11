@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zlib1g-dev \
     libtiff-dev \
     libopenmpi-dev \
+    openmpi-bin \
     libboost-iostreams-dev \
     libboost-graph-dev \
     libfmt-dev \
